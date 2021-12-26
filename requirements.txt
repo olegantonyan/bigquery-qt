@@ -1,2 +1,3 @@
 pyside6
 pyyaml
+google-cloud-bigquery
