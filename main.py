@@ -1,36 +1,36 @@
-# This Python file uses the following encoding: utf-8
 import os
 import sys
 
 from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtCore import QFile, QObject
+from PySide6.QtCore import QFile, QObject, QStandardPaths
 from PySide6.QtUiTools import QUiLoader
 
-class MainWindowController(QObject):
-    def __init__(self):
-        super(MainWindowController, self).__init__()
-        self.window = self.load_ui()
+import mainwindow
+import configuration
 
-        self.window.pushButton.clicked.connect(self.the_button_was_clicked)
 
-    def load_ui(self):
-        loader = QUiLoader()
-        path = os.path.join(os.path.dirname(__file__), "form.ui")
-        ui_file = QFile(path)
-        ui_file.open(QFile.ReadOnly)
-        window = loader.load(ui_file)
-        ui_file.close()
-        return window
+def mkconfig():
+    config_file_dir = os.path.join(QStandardPaths.writableLocation(QStandardPaths.ConfigLocation), qApp.applicationName())
+    if not os.path.exists(config_file_dir):
+        os.makedirs(config_file_dir)
+    config_file_path = os.path.join(config_file_dir, 'config.yaml')
+    if not os.path.exists(config_file_path):
+        open(config_file_path, mode='a').close()
+    return configuration.Configuration(config_file_path)
 
-    def show(self):
-        self.window.show()
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('bqt')
+    app.setApplicationVersion('0.0.1')
+    app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
 
-    def the_button_was_clicked(self):
-        qApp.aboutQt()
+    config = mkconfig()
+
+    win = mainwindow.MainWindow(config)
+    win.show()
+
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    app = QApplication([])
-    widget = MainWindowController()
-    widget.show()
-    sys.exit(app.exec())
+    main()
