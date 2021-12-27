@@ -76,6 +76,7 @@ class MainWindow(QMainWindow):
     def _save_geometry(self):
         self.config.window_geometry = dumpster.qbytearray_to_str(self.saveGeometry())
         self.config.window_state = dumpster.qbytearray_to_str(self.saveState())
+        self.config.main_splitter_sizes = self.main_splitter.sizes()
         self.config.secondary_splitter_sizes = self.secondary_splitter.sizes()
         self.config.sync()
 
