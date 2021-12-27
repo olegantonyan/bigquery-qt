@@ -19,7 +19,7 @@ def mkconfig():
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName('bqt')
+    app.setApplicationName('bigquery-qt')
     app.setApplicationVersion('0.0.1')
     app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
 
