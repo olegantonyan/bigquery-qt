@@ -6,9 +6,9 @@ import yaml
 
 class Config:
     def __init__(self, path: str):
-        self._path = path
+        self.path = path
         self._h = {}
-        with open(self._path, 'r') as f:
+        with open(self.path, 'r') as f:
             result = yaml.safe_load(f)
             if result is not None:
                 self._h = result
@@ -50,7 +50,7 @@ class Config:
         return self._get('project')
 
     def sync(self) -> None:
-        with open(self._path, 'w') as f:
+        with open(self.path, 'w') as f:
             yaml.dump(self._h, f)
 
     def _get(self, key):

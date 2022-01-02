@@ -15,6 +15,8 @@ class Model(QStandardItemModel):
         if self.cfg.project is None:
             return
 
+        self.clear()
+
         client = bigquery.Client(project=self.cfg.project)
         for dataset in client.list_datasets():
             dataset_row = Item(f"{dataset.dataset_id}")
