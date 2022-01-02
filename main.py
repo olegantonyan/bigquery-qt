@@ -22,6 +22,17 @@ def mkconfig(custom_path: str = None):
         open(config_file_path, mode='a').close()
     return config.Config(config_file_path)
 
+
+def print_version_info(cfg: config.Config):
+    print(f"App version:            {qApp.applicationVersion()}")
+    print(f"Config file:            {cfg.path}")
+    print(f"Python version:         {'.'.join((str(i) for i in sys.version_info[0:3]))}")
+    print(f"Python executable:      {sys.executable}")
+    print(f"PySide version:         {PySide.__version__}")
+    print(f"Qt version (compiled):  {PySide.QtCore.__version__}")
+    print(f"Qt version (running):   {PySide.QtCore.qVersion()}")
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName('bigquery-qt')
@@ -30,13 +41,7 @@ def main():
 
     cfg = mkconfig()
 
-    print(f"App version:            {qApp.applicationVersion()}")
-    print(f"Config file:            {cfg.path}")
-    print(f"Python version:         {'.'.join((str(i) for i in sys.version_info[0:3]))}")
-    print(f"Python executable:      {sys.executable}")
-    print(f"PySide version:         {PySide.__version__}")
-    print(f"Qt version (compiled):  {PySide.QtCore.__version__}")
-    print(f"Qt version (running):   {PySide.QtCore.qVersion()}")
+    print_version_info(cfg)
 
     win = mainwindow.MainWindow(cfg)
     win.show()
