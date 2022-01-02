@@ -2,15 +2,15 @@ from PySide6.QtCore import QObject, QByteArray, Qt
 from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QSplitter, QTreeView, QTextEdit, QWidget, QToolBar
 from PySide6.QtGui import QAction, QIcon
 
-import configuration
-import dumpster
-import tables.controller
+import misc.config as config
+import misc.dumpster as dumpster
+import tables_ui.controller
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, config: configuration.Configuration):
+    def __init__(self, cfg: config.Config):
         super(self.__class__, self).__init__()
-        self.config = config
+        self.cfg = cfg
 
         vertical_layout = QVBoxLayout()
 
@@ -32,7 +32,7 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(vertical_layout)
         self.setCentralWidget(central_widget)
 
-        self.tables_controller = tables.controller.Controller(config=config, view=tree_view)
+        self.tables_controller = tables_ui.controller.Controller(cfg=self.cfg, view=tree_view)
 
         #main_toolbar = QToolBar()
         #main_toolbar.setObjectName("main_toolbar")
@@ -63,22 +63,22 @@ class MainWindow(QMainWindow):
         self._save_geometry()
 
     def _restore_geometry(self):
-        if self.config.window_geometry is not None:
-            self.restoreGeometry(dumpster.qbytearray_from_str(self.config.window_geometry))
-        if self.config.window_state is not None:
-            self.restoreState(dumpster.qbytearray_from_str(self.config.window_state))
-        if self.config.main_splitter_sizes is not None:
-            self.main_splitter.setSizes(self.config.main_splitter_sizes)
-        if self.config.secondary_splitter_sizes is not None:
-            self.secondary_splitter.setSizes(self.config.secondary_splitter_sizes)
+        if self.cfg.window_geometry is not None:
+            self.restoreGeometry(dumpster.qbytearray_from_str(self.cfg.window_geometry))
+        if self.cfg.window_state is not None:
+            self.restoreState(dumpster.qbytearray_from_str(self.cfg.window_state))
+        if self.cfg.main_splitter_sizes is not None:
+            self.main_splitter.setSizes(self.cfg.main_splitter_sizes)
+        if self.cfg.secondary_splitter_sizes is not None:
+            self.secondary_splitter.setSizes(self.cfg.secondary_splitter_sizes)
 
 
     def _save_geometry(self):
-        self.config.window_geometry = dumpster.qbytearray_to_str(self.saveGeometry())
-        self.config.window_state = dumpster.qbytearray_to_str(self.saveState())
-        self.config.main_splitter_sizes = self.main_splitter.sizes()
-        self.config.secondary_splitter_sizes = self.secondary_splitter.sizes()
-        self.config.sync()
+        self.cfg.window_geometry = dumpster.qbytearray_to_str(self.saveGeometry())
+        self.cfg.window_state = dumpster.qbytearray_to_str(self.saveState())
+        self.cfg.main_splitter_sizes = self.main_splitter.sizes()
+        self.cfg.secondary_splitter_sizes = self.secondary_splitter.sizes()
+        self.cfg.sync()
 
     def the_button_was_clicked(self):
         qApp.aboutQt()

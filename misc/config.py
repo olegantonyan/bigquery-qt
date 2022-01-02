@@ -4,7 +4,7 @@ from typing import Optional, List
 
 import yaml
 
-class Configuration:
+class Config:
     def __init__(self, path: str):
         self._path = path
         self._h = {}
