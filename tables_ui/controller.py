@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QTreeView, QAbstractItemView
-from PySide6.QtCore import QItemSelectionModel
+from PySide6.QtCore import QItemSelectionModel, QModelIndex
 
 import misc.config as config
 import tables_ui.model as model
@@ -17,16 +17,12 @@ class Controller:
         self.view.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self.model = model.Model(bq=bq)
-        #self.model.setHorizontalHeaderLabels(['col1', 'col2', 'col3'])
         self.view.setModel(self.model)
 
         self.model.reload()
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # expand third container
-        #index = self.model.indexFromItem(parent1)
-        #self.view.expand(index)
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # select last row
-        #selmod = self.view.selectionModel()
-        #index2 = self.model.indexFromItem(child3)
-        #selmod.select(index2, QItemSelectionModel.Select|QItemSelectionModel.Rows)
+
+        self.view.clicked.connect(self.item_clicked)
+
+    def item_clicked(self, index: QModelIndex) -> None:
+        item = self.model.itemFromIndex(index)
+        print(item.type + " -- " + item.text())
