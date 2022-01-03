@@ -3,10 +3,11 @@ from PySide6.QtCore import QItemSelectionModel
 
 import misc.config as config
 import tables_ui.model as model
+import bigquery_api.bigquery_api as bigquery_api
 
 
 class Controller:
-    def __init__(self, cfg: config.Config, view: QTreeView):
+    def __init__(self, cfg: config.Config, bq: bigquery_api.BigQueryAPI, view: QTreeView):
         self.view = view
         self.cfg = cfg
 
@@ -15,7 +16,7 @@ class Controller:
         self.view.setHeaderHidden(True)
         self.view.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        self.model = model.Model(cfg=self.cfg)
+        self.model = model.Model(bq=bq)
         #self.model.setHorizontalHeaderLabels(['col1', 'col2', 'col3'])
         self.view.setModel(self.model)
 

@@ -5,10 +5,11 @@ from PySide6.QtGui import QAction, QIcon
 import misc.config as config
 import misc.dumpster as dumpster
 import tables_ui.controller
+import bigquery_api.bigquery_api as bigquery_api
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, cfg: config.Config):
+    def __init__(self, cfg: config.Config, bq: bigquery_api.BigQueryAPI):
         super(self.__class__, self).__init__()
         self.cfg = cfg
 
@@ -32,7 +33,7 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(vertical_layout)
         self.setCentralWidget(central_widget)
 
-        self.tables_controller = tables_ui.controller.Controller(cfg=self.cfg, view=tree_view)
+        self.tables_controller = tables_ui.controller.Controller(cfg=self.cfg, bq=bq, view=tree_view)
 
         #main_toolbar = QToolBar()
         #main_toolbar.setObjectName("main_toolbar")

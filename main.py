@@ -8,6 +8,7 @@ from PySide6.QtCore import QStandardPaths
 import mainwindow
 import misc.config as config
 import version
+import bigquery_api.bigquery_api as bigquery_api
 
 
 def mkconfig(custom_path: str = None):
@@ -43,7 +44,9 @@ def main():
 
     print_version_info(cfg)
 
-    win = mainwindow.MainWindow(cfg)
+    bq = bigquery_api.BigQueryAPI(cfg.project)
+
+    win = mainwindow.MainWindow(cfg, bq)
     win.show()
 
     sys.exit(app.exec())

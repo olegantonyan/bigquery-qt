@@ -1,26 +1,19 @@
-import asyncio
-
 from PySide6.QtGui import QStandardItemModel, QStandardItem
-from google.cloud import bigquery
 
-import misc.config as config
+import bigquery_api.bigquery_api as bigquery_api
 
 
 class Model(QStandardItemModel):
-    def __init__(self, cfg: config.Config, *args):
+    def __init__(self, bq: bigquery_api.BigQueryAPI, *args):
         super(self.__class__, self).__init__(*args)
-        self.cfg = cfg
+        self.bq = bq
 
     def reload(self) -> None:
-        if self.cfg.project is None:
-            return
-
         self.clear()
 
-        client = bigquery.Client(project=self.cfg.project)
-        for dataset in client.list_datasets():
+        for dataset in self.bq.datasets():
             dataset_row = Item(f"{dataset.dataset_id}")
-            for table in client.list_tables(dataset.dataset_id):
+            for table in self.bq.tables(dataset.dataset_id):
                 table_row = Item(f"{table.table_id}")
                 dataset_row.appendRow(table_row)
             self.appendRow(dataset_row)
