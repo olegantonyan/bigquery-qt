@@ -1,12 +1,12 @@
 import os
 import sys
 
-import PySide6 as PySide
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QStandardPaths
 
 import mainwindow
 import misc.config as config
+import misc.sysinfo as sysinfo
 import version
 import bigquery_api.bigquery_api as bigquery_api
 
@@ -24,16 +24,6 @@ def mkconfig(custom_path: str = None):
     return config.Config(config_file_path)
 
 
-def print_version_info(cfg: config.Config):
-    print(f"App version:            {qApp.applicationVersion()}")
-    print(f"Config file:            {cfg.path}")
-    print(f"Python version:         {'.'.join((str(i) for i in sys.version_info[0:3]))}")
-    print(f"Python executable:      {sys.executable}")
-    print(f"PySide version:         {PySide.__version__}")
-    print(f"Qt version (compiled):  {PySide.QtCore.__version__}")
-    print(f"Qt version (running):   {PySide.QtCore.qVersion()}")
-
-
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName('bigquery-qt')
@@ -41,8 +31,8 @@ def main():
     app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
 
     cfg = mkconfig()
-
-    print_version_info(cfg)
+    print(f"using config file {cfg.path}")
+    print(sysinfo.SysInfo())
 
     bq = bigquery_api.BigQueryAPI(cfg.project)
 
