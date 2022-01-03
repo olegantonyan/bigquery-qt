@@ -1,4 +1,5 @@
 import sys
+import os
 
 import PySide6 as PySide
 
@@ -11,6 +12,7 @@ class SysInfo:
         self.pyside_version = PySide.__version__
         self.qt_compiled_version = PySide.QtCore.__version__
         self.qt_runtinme_version = PySide.QtCore.qVersion()
+        self.cwd = os.getcwd()
 
     def __str__(self) -> str:
         return f"""\
@@ -19,4 +21,5 @@ Python version:         {self.py_version}
 Python executable:      {self.py_executable}
 PySide version:         {self.pyside_version}
 Qt version (compiled):  {self.qt_compiled_version}
-Qt version (running):   {self.qt_runtinme_version}"""
+Qt version (running):   {self.qt_runtinme_version}
+Working directory:      {self.cwd}"""

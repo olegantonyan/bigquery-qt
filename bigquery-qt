@@ -1,0 +1,8 @@
+#!/bin/sh
+
+BASEDIR=$(dirname "$0")
+PYTHON=python3
+ENTRY=main.py
+
+$PYTHON $BASEDIR/$ENTRY
+exit $?

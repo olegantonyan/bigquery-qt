@@ -31,9 +31,11 @@ def main():
     app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
 
     cfg = mkconfig()
+
     print(f"using config file {cfg.path}")
     print(sysinfo.SysInfo())
 
+    print(f"connecting to BigQuery project {cfg.project}")
     bq = bigquery_api.BigQueryAPI(cfg.project)
 
     win = mainwindow.MainWindow(cfg, bq)
