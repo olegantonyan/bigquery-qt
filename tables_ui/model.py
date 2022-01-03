@@ -1,6 +1,7 @@
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 import bigquery_api.bigquery_api as bigquery_api
+import bigquery_api.dataset as dataset
 
 
 class Model(QStandardItemModel):
@@ -15,9 +16,9 @@ class Model(QStandardItemModel):
     def load(self):
         parent = self.invisibleRootItem()
         for dataset in self.bq.datasets():
-            dataset_row = Item(dataset.dataset_id, "dataset")
-            for table in self.bq.tables(dataset.dataset_id):
-                table_row = Item(table.table_id, "table")
+            dataset_row = Item(dataset.id(), "dataset")
+            for table in self.bq.tables(dataset.id()):
+                table_row = Item(table.id(), "table")
                 dataset_row.appendRow(table_row)
             parent.appendRow(dataset_row)
 
