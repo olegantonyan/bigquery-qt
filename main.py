@@ -26,31 +26,34 @@ def mkconfig(custom_path: str = None) -> config.Config:
 
 
 def mkbq(cfg: config.Config) -> bigquery_api.BigQueryAPI:
-    print(f"connecting to BigQuery project {cfg.project}")
     return bigquery_api.BigQueryAPI(cfg.project)
+
+
+def mkqtapp() -> QApplication:
+    app = QApplication()
+    app.setApplicationName('bigquery-qt')
+    app.setApplicationVersion(version.VERSION)
+    app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
+    return app
 
 
 def parse_cli() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Google BigQuery desktop frontend')
     parser.add_argument('--config', default=None, help='path to config file')
-    parser.add_argument('--version', action='version', version=version.VERSION)
+    parser.add_argument('--version', action='version', version=qApp.applicationDisplayName())
     # https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_argument
     return parser.parse_args()
 
 
 def main():
+    app = mkqtapp()
     args = parse_cli()
-
-    app = QApplication()
-    app.setApplicationName('bigquery-qt')
-    app.setApplicationVersion(version.VERSION)
-    app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
-
     cfg = mkconfig(args.config)
 
     print(f"using config file {cfg.path}")
     print(sysinfo.SysInfo())
 
+    print(f"connecting to BigQuery project {cfg.project}")
     bq = mkbq(cfg)
 
     win = mainwindow.MainWindow(cfg, bq)
