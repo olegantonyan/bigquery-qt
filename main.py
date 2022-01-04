@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QStandardPaths
@@ -11,7 +12,7 @@ import version
 import bigquery_api.bigquery_api as bigquery_api
 
 
-def mkconfig(custom_path: str = None):
+def mkconfig(custom_path: str = None) -> config.Config:
     if custom_path is not None:
         return config.Config(custom_path)
 
@@ -24,19 +25,33 @@ def mkconfig(custom_path: str = None):
     return config.Config(config_file_path)
 
 
+def mkbq(cfg: config.Config) -> bigquery_api.BigQueryAPI:
+    print(f"connecting to BigQuery project {cfg.project}")
+    return bigquery_api.BigQueryAPI(cfg.project)
+
+
+def parse_cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Google BigQuery desktop frontend')
+    parser.add_argument('--config', default=None, help='path to config file')
+    parser.add_argument('--version', action='version', version=version.VERSION)
+    # https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_argument
+    return parser.parse_args()
+
+
 def main():
-    app = QApplication(sys.argv)
+    args = parse_cli()
+
+    app = QApplication()
     app.setApplicationName('bigquery-qt')
     app.setApplicationVersion(version.VERSION)
     app.setApplicationDisplayName(f"{qApp.applicationName()} {qApp.applicationVersion()}")
 
-    cfg = mkconfig()
+    cfg = mkconfig(args.config)
 
     print(f"using config file {cfg.path}")
     print(sysinfo.SysInfo())
 
-    print(f"connecting to BigQuery project {cfg.project}")
-    bq = bigquery_api.BigQueryAPI(cfg.project)
+    bq = mkbq(cfg)
 
     win = mainwindow.MainWindow(cfg, bq)
     win.show()
