@@ -1,5 +1,5 @@
 from PySide6.QtCore import QObject, QByteArray, Qt
-from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QSplitter, QTreeView, QTextEdit, QWidget, QToolBar
+from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QSplitter, QTreeView, QTextEdit, QWidget, QToolBar, QComboBox
 from PySide6.QtGui import QAction, QIcon
 
 import misc.config as config
@@ -20,11 +20,18 @@ class MainWindow(QMainWindow):
         tree_view = QTreeView()
         text_edit_query = QTextEdit()
         text_edit_results = QTextEdit()
+        project_combobox = QComboBox()
+
+        tree_layout_widget = QWidget()
+        tree_and_combo_layout = QVBoxLayout(tree_layout_widget)
+        tree_and_combo_layout.setContentsMargins(0, 0, 0, 0)
+        tree_and_combo_layout.addWidget(tree_view)
+        tree_and_combo_layout.addWidget(project_combobox)
 
         self.secondary_splitter.addWidget(text_edit_query)
         self.secondary_splitter.addWidget(text_edit_results)
 
-        self.main_splitter.addWidget(tree_view)
+        self.main_splitter.addWidget(tree_layout_widget)
         self.main_splitter.addWidget(self.secondary_splitter)
 
         vertical_layout.addWidget(self.main_splitter)
@@ -33,7 +40,7 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(vertical_layout)
         self.setCentralWidget(central_widget)
 
-        self.tables_controller = tables_ui.controller.Controller(cfg=self.cfg, bq=bq, view=tree_view)
+        self.tables_controller = tables_ui.controller.Controller(cfg=self.cfg, bq=bq, view=tree_view, project_combobox=project_combobox)
 
         #main_toolbar = QToolBar()
         #main_toolbar.setObjectName("main_toolbar")
