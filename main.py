@@ -53,7 +53,6 @@ def main():
     print(f"using config file {cfg.path}")
     print(sysinfo.SysInfo())
 
-    print(f"connecting to BigQuery project {cfg.project}")
     bq = mkbq(cfg)
 
     win = mainwindow.MainWindow(cfg, bq)

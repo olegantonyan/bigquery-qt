@@ -49,6 +49,10 @@ class Config:
     def project(self) -> Optional[str]:
         return self._get('project')
 
+    @project.setter
+    def project(self, value: str):
+        self._set('project', value)
+
     def sync(self) -> None:
         with open(self.path, 'w') as f:
             yaml.dump(self._h, f)

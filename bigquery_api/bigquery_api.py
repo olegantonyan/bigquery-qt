@@ -9,6 +9,10 @@ import bigquery_api.project as project
 
 class BigQueryAPI:
     def __init__(self, project: str):
+        self.reload(project)
+
+    def reload(self, project: str) -> None:
+        print(f"connecting to BigQuery project {project}")
         self._client = bigquery.Client(project=project)
 
     def datasets(self) -> list[dataset.Dataset]:
