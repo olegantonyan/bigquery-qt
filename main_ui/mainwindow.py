@@ -1,17 +1,20 @@
 from PySide6.QtCore import QObject, QByteArray, Qt
-from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QSplitter, QTreeView, QTextEdit, QWidget, QToolBar, QComboBox
+from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QSplitter, QTreeView, QTextEdit, QWidget, QToolBar, QComboBox, QProgressBar
 from PySide6.QtGui import QAction, QIcon
 
 import misc.config as config
 import misc.dumpster as dumpster
 import tables_ui.controller
 import bigquery_api.bigquery_api as bigquery_api
+import main_ui.busy_indicator as busy_indicator
 
 
 class MainWindow(QMainWindow):
     def __init__(self, cfg: config.Config, bq: bigquery_api.BigQueryAPI):
-        super(self.__class__, self).__init__()
+        super().__init__()
         self.cfg = cfg
+
+        self._create_statusbar()
 
         vertical_layout = QVBoxLayout()
 
@@ -69,6 +72,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, _event):
         self._save_geometry()
+
+    def _create_statusbar(self):
+        self.busy_indicator = busy_indicator.BusyIndicator()
+        self.statusBar().addWidget(self.busy_indicator)
 
     def _restore_geometry(self):
         if self.cfg.window_geometry is not None:

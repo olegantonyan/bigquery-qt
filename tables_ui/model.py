@@ -6,7 +6,7 @@ import bigquery_api.dataset as dataset
 
 class Model(QStandardItemModel):
     def __init__(self, bq: bigquery_api.BigQueryAPI, *args):
-        super(self.__class__, self).__init__(*args)
+        super().__init__(*args)
         self.bq = bq
 
     def reload(self) -> None:
@@ -24,5 +24,5 @@ class Model(QStandardItemModel):
 
 class Item(QStandardItem):
     def __init__(self, text: str, type: str):
-        super(self.__class__, self).__init__(text)
+        super().__init__(text)
         self.type = type

@@ -1,13 +1,15 @@
 from PySide6.QtWidgets import QTreeView, QAbstractItemView, QComboBox
-from PySide6.QtCore import QItemSelectionModel, QModelIndex
+from PySide6.QtCore import QObject, QItemSelectionModel, QModelIndex
 
 import misc.config as config
 import tables_ui.model as model
 import bigquery_api.bigquery_api as bigquery_api
 
 
-class Controller:
+class Controller(QObject):
     def __init__(self, cfg: config.Config, bq: bigquery_api.BigQueryAPI, view: QTreeView, project_combobox: QComboBox):
+        super().__init__()
+        
         self.view = view
         self.project_combobox = project_combobox
         self.cfg = cfg

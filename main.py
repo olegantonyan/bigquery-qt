@@ -5,7 +5,7 @@ import argparse
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QStandardPaths
 
-import mainwindow
+import main_ui.mainwindow as mainwindow
 import misc.config as config
 import misc.sysinfo as sysinfo
 import version
