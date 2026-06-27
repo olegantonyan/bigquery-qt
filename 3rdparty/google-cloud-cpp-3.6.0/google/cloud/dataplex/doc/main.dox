@@ -1,0 +1,59 @@
+/*!
+
+@mainpage Cloud Dataplex API C++ Client Library
+
+An idiomatic C++ client library for the [Cloud Dataplex API][cloud-service-docs],
+an intelligent data fabric that helps you unify distributed data and automate
+data management and governance across that data to power analytics at scale.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/dataplex/quickstart/` directory,
+which should give you a taste of the Cloud Dataplex API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c dataplex_v1::BusinessGlossaryServiceClient](@ref google::cloud::dataplex_v1::BusinessGlossaryServiceClient)
+- [\c dataplex_v1::CatalogServiceClient](@ref google::cloud::dataplex_v1::CatalogServiceClient)
+- [\c dataplex_v1::CmekServiceClient](@ref google::cloud::dataplex_v1::CmekServiceClient)
+- [\c dataplex_v1::ContentServiceClient](@ref google::cloud::dataplex_v1::ContentServiceClient)
+- [\c dataplex_v1::DataProductServiceClient](@ref google::cloud::dataplex_v1::DataProductServiceClient)
+- [\c dataplex_v1::DataScanServiceClient](@ref google::cloud::dataplex_v1::DataScanServiceClient)
+- [\c dataplex_v1::DataTaxonomyServiceClient](@ref google::cloud::dataplex_v1::DataTaxonomyServiceClient)
+- [\c dataplex_v1::DataplexServiceClient](@ref google::cloud::dataplex_v1::DataplexServiceClient)
+- [\c dataplex_v1::MetadataServiceClient](@ref google::cloud::dataplex_v1::MetadataServiceClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref dataplex-override-endpoint - describes how to override the default
+  endpoint.
+- @ref dataplex-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref dataplex-override-retry - describes how to change the default retry
+  policies.
+- @ref dataplex-env - describes environment variables that can configure the behavior of the library.
+- @ref dataplex-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/dataplex
+
+*/

@@ -1,0 +1,17 @@
+@googleapis//google/cloud/osconfig/agentendpoint/v1:agentendpoint.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:config_common.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:inventory.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:os_policy.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:patch_jobs.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:tasks.proto
+@googleapis//google/cloud/osconfig/agentendpoint/v1:vm_inventory.proto
+@googleapis//google/cloud/osconfig/v1:inventory.proto
+@googleapis//google/cloud/osconfig/v1:os_policy.proto
+@googleapis//google/cloud/osconfig/v1:os_policy_assignment_reports.proto
+@googleapis//google/cloud/osconfig/v1:os_policy_assignments.proto
+@googleapis//google/cloud/osconfig/v1:osconfig_common.proto
+@googleapis//google/cloud/osconfig/v1:osconfig_service.proto
+@googleapis//google/cloud/osconfig/v1:osconfig_zonal_service.proto
+@googleapis//google/cloud/osconfig/v1:patch_deployments.proto
+@googleapis//google/cloud/osconfig/v1:patch_jobs.proto
+@googleapis//google/cloud/osconfig/v1:vulnerability.proto

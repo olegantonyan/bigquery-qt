@@ -1,3 +1,7 @@
-*.user
 __pycache__/
 *.pyproject
+build*/
+*.user*
+.qtcreator/
+.env
+

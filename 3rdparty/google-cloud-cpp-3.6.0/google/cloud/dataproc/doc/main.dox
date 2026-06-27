@@ -1,0 +1,60 @@
+/*!
+
+@mainpage Cloud Dataproc API C++ Client Library
+
+An idiomatic C++ client library for the [Cloud Dataproc API][cloud-service-docs],
+a managed Apache Spark and Apache Hadoop service that lets you take advantage of
+open source data tools for batch processing, querying, streaming, and machine
+learning. This library allows you to *manage* Cloud Dataproc resources, but it
+does not provide APIs to run C++ applications in Cloud Dataproc.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/dataproc/quickstart/` directory,
+which should give you a taste of the Cloud Dataproc API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c dataproc_v1::AutoscalingPolicyServiceClient](@ref google::cloud::dataproc_v1::AutoscalingPolicyServiceClient)
+- [\c dataproc_v1::BatchControllerClient](@ref google::cloud::dataproc_v1::BatchControllerClient)
+- [\c dataproc_v1::ClusterControllerClient](@ref google::cloud::dataproc_v1::ClusterControllerClient)
+- [\c dataproc_v1::JobControllerClient](@ref google::cloud::dataproc_v1::JobControllerClient)
+- [\c dataproc_v1::NodeGroupControllerClient](@ref google::cloud::dataproc_v1::NodeGroupControllerClient)
+- [\c dataproc_v1::SessionControllerClient](@ref google::cloud::dataproc_v1::SessionControllerClient)
+- [\c dataproc_v1::SessionTemplateControllerClient](@ref google::cloud::dataproc_v1::SessionTemplateControllerClient)
+- [\c dataproc_v1::WorkflowTemplateServiceClient](@ref google::cloud::dataproc_v1::WorkflowTemplateServiceClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref dataproc-override-endpoint - describes how to override the default
+  endpoint.
+- @ref dataproc-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref dataproc-override-retry - describes how to change the default retry
+  policies.
+- @ref dataproc-env - describes environment variables that can configure the behavior of the library.
+- @ref dataproc-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/dataproc
+
+*/

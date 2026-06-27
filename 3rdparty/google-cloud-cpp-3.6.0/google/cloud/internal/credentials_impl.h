@@ -1,0 +1,268 @@
+// Copyright 2021 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_INTERNAL_CREDENTIALS_IMPL_H
+#define GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_INTERNAL_CREDENTIALS_IMPL_H
+
+#include "google/cloud/access_token.h"
+#include "google/cloud/credentials.h"
+#include "google/cloud/options.h"
+#include "google/cloud/status_or.h"
+#include "google/cloud/version.h"
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace google {
+namespace cloud {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+namespace internal {
+
+class ErrorCredentialsConfig;
+class InsecureCredentialsConfig;
+class GoogleDefaultCredentialsConfig;
+class AccessTokenConfig;
+class ImpersonateServiceAccountConfig;
+class ServiceAccountConfig;
+class ExternalAccountConfig;
+class ApiKeyConfig;
+class ComputeEngineCredentialsConfig;
+class AuthorizedUserConfig;
+class GDCHServiceAccountConfig;
+
+std::shared_ptr<Credentials> MakeErrorCredentials(Status error_status);
+
+/**
+ * Creates user account credentials from a user account JSON key.
+ *
+ * User account credentials contain a refresh token, client ID, and client
+ * secret, typically obtained via OAuth 2.0 authorization flow.
+ *
+ * @param json_object the user account configuration as a JSON string.
+ * @param opts optional configuration values.
+ */
+std::shared_ptr<Credentials> MakeUserAccountCredentials(std::string json_object,
+                                                        Options opts = {});
+
+class CredentialsVisitor {
+ public:
+  virtual ~CredentialsVisitor() = default;
+  virtual void visit(ErrorCredentialsConfig const&) = 0;
+  virtual void visit(InsecureCredentialsConfig const&) = 0;
+  virtual void visit(GoogleDefaultCredentialsConfig const&) = 0;
+  virtual void visit(AccessTokenConfig const&) = 0;
+  virtual void visit(ImpersonateServiceAccountConfig const&) = 0;
+  virtual void visit(ServiceAccountConfig const&) = 0;
+  virtual void visit(ExternalAccountConfig const&) = 0;
+  virtual void visit(ApiKeyConfig const&) = 0;
+  virtual void visit(ComputeEngineCredentialsConfig const&) = 0;
+  virtual void visit(AuthorizedUserConfig const&) = 0;
+  virtual void visit(GDCHServiceAccountConfig const&) = 0;
+
+  static void dispatch(Credentials const& credentials,
+                       CredentialsVisitor& visitor);
+};
+
+class ErrorCredentialsConfig : public Credentials {
+ public:
+  explicit ErrorCredentialsConfig(Status error_status);
+  ~ErrorCredentialsConfig() override = default;
+
+  Status const& status() const { return status_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  Status status_;
+};
+
+class InsecureCredentialsConfig : public Credentials {
+ public:
+  explicit InsecureCredentialsConfig(Options opts);
+  ~InsecureCredentialsConfig() override = default;
+
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  Options options_;
+};
+
+class GoogleDefaultCredentialsConfig : public Credentials {
+ public:
+  explicit GoogleDefaultCredentialsConfig(Options opts);
+  ~GoogleDefaultCredentialsConfig() override = default;
+
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  Options options_;
+};
+
+class AccessTokenConfig : public Credentials {
+ public:
+  AccessTokenConfig(std::string token,
+                    std::chrono::system_clock::time_point expiration,
+                    Options opts);
+  ~AccessTokenConfig() override = default;
+
+  AccessToken const& access_token() const { return access_token_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  AccessToken access_token_;
+  Options options_;
+};
+
+class ImpersonateServiceAccountConfig : public Credentials {
+ public:
+  ImpersonateServiceAccountConfig(std::shared_ptr<Credentials> base_credentials,
+                                  std::string target_service_account,
+                                  Options opts);
+
+  std::shared_ptr<Credentials> base_credentials() const {
+    return base_credentials_;
+  }
+  std::string const& target_service_account() const {
+    return target_service_account_;
+  }
+  std::chrono::seconds lifetime() const;
+  std::vector<std::string> const& scopes() const;
+  std::vector<std::string> const& delegates() const;
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::shared_ptr<Credentials> base_credentials_;
+  std::string target_service_account_;
+  Options options_;
+};
+
+class ServiceAccountConfig : public Credentials {
+ public:
+  // Only one of json_object or file_path should have a value.
+  // TODO(#15886): Use the C++ type system to make better constructors that
+  //   enforces this comment.
+  ServiceAccountConfig(std::optional<std::string> json_object,
+                       std::optional<std::string> file_path, Options opts);
+
+  std::optional<std::string> const& json_object() const { return json_object_; }
+  std::optional<std::string> const& file_path() const { return file_path_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::optional<std::string> json_object_;
+  std::optional<std::string> file_path_;
+  Options options_;
+};
+
+class ExternalAccountConfig : public Credentials {
+ public:
+  ExternalAccountConfig(std::string json_object, Options options);
+
+  std::string const& json_object() const { return json_object_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::string json_object_;
+  Options options_;
+};
+
+class ApiKeyConfig : public Credentials {
+ public:
+  ApiKeyConfig(std::string api_key, Options opts);
+  ~ApiKeyConfig() override = default;
+
+  std::string const& api_key() const { return api_key_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::string api_key_;
+  Options options_;
+};
+
+class ComputeEngineCredentialsConfig : public Credentials {
+ public:
+  explicit ComputeEngineCredentialsConfig(Options opts);
+  ~ComputeEngineCredentialsConfig() override = default;
+
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  Options options_;
+};
+
+class AuthorizedUserConfig : public Credentials {
+ public:
+  AuthorizedUserConfig(std::string json_object, Options opts);
+  ~AuthorizedUserConfig() override = default;
+
+  std::string const& json_object() const { return json_object_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::string json_object_;
+  Options options_;
+};
+
+class GDCHServiceAccountConfig : public Credentials {
+ public:
+  GDCHServiceAccountConfig(std::string json_object, std::string audience,
+                           Options opts);
+  GDCHServiceAccountConfig(std::string audience, Options opts);
+
+  ~GDCHServiceAccountConfig() override = default;
+
+  std::optional<std::string> const& file_path() const { return file_path_; }
+  std::string const& json_object() const { return json_object_; }
+  std::string const& audience() const { return audience_; }
+  Options const& options() const { return options_; }
+
+ private:
+  void dispatch(CredentialsVisitor& v) const override { v.visit(*this); }
+
+  std::optional<std::string> file_path_ = std::nullopt;
+  std::string json_object_;
+  std::string audience_;
+  Options options_;
+};
+
+/// A helper function to initialize Auth options.
+Options PopulateAuthOptions(Options options);
+
+}  // namespace internal
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace cloud
+}  // namespace google
+
+#endif  // GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_INTERNAL_CREDENTIALS_IMPL_H

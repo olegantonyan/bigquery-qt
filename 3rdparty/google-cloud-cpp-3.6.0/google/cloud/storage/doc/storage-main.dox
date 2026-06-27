@@ -1,0 +1,142 @@
+/*!
+
+@mainpage Google Cloud Storage C++ Client Library
+
+The Google Cloud Storage (GCS) C++ Client library offers types and functions
+access GCS from C++ applications. It offers full access to the GCS API,
+including operations to list, read, write, and delete
+[GCS objects][object-definition-link] and [buckets][bucket-definition-link].
+The library also provides functions to modify the IAM permissions on buckets,
+read and modify the metadata associated with objects and buckets, configure
+encryption keys, configure notifications via Cloud Pub/Sub, and change the
+access control list of object or buckets.
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following "Hello World" program should give you a taste of this library.
+This program is also used to illustrate how to incorporate the library into your
+project.
+
+@snippet quickstart.cc all
+
+## More Information
+
+- [ReadObject()] - the function to read object data.
+- [WriteObject()] - the function to write objects.
+- [InsertObject()] - the function to write small objects.
+- @ref storage-error to learn how the library reports run-time errors.
+- @ref storage-env for environment variables affecting the library.  Some of
+  these environment variables enable logging to the console.  This can be an
+  effective approach to diagnose runtime problems.
+- @ref storage-endpoint-example
+- @ref storage-auth-example
+- @ref storage-retry-examples
+- @ref storage-universe-domain-example
+- @ref storage-mocking shows how to write tests mocking the [Client] class
+- The [Setting up your development environment] guide describes how to set up
+  a C++ development environment in various platforms, including the Google Cloud
+  C++ client libraries.
+
+[Client]: @ref google::cloud::storage::Client
+[ReadObject()]: @ref google::cloud::storage::Client::ReadObject()
+[WriteObject()]: @ref google::cloud::storage::Client::WriteObject()
+[InsertObject()]: @ref google::cloud::storage::Client::InsertObject()
+[ListObjects()]: @ref google::cloud::storage::Client::ListObjects()
+[DeleteObject()]: @ref google::cloud::storage::Client::DeleteObject()
+
+[gcs-quickstart]: https://cloud.google.com/storage/docs/introduction#quickstarts 'GCS Quickstarts'
+[resource-link]: https://console.cloud.google.com/cloud-resource-manager 'Console Resource Manager'
+[billing-link]: https://cloud.google.com/billing/docs/how-to/modify-project 'How to: Modify Project'
+[concepts-link]: https://cloud.google.com/storage/docs/concepts 'GCS Concepts'
+[authentication-quickstart]: https://cloud.google.com/docs/authentication/client-libraries 'Authenticate for using client libraries'
+[gcloud-quickstart]: https://cloud.google.com/sdk/docs/quickstarts
+[bucket-definition-link]: https://cloud.google.com/storage/docs/key-terms#buckets
+[object-definition-link]: https://cloud.google.com/storage/docs/key-terms#objects
+[github-link]: https://github.com/googleapis/google-cloud-cpp 'GitHub Repository'
+[project-readme]:  https://github.com/googleapis/google-cloud-cpp#readme
+[project-build]:   https://github.com/googleapis/google-cloud-cpp#building-and-installing
+[howto-setup-dev-workstation]: https://github.com/googleapis/google-cloud-cpp/blob/main/doc/contributor/howto-guide-setup-development-workstation.md
+[quickstart guide]: https://github.com/googleapis/google-cloud-cpp/tree/main/google/cloud/storage/quickstart#readme
+[packaging guide]:  https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging%2Emd
+[Setting up your development environment]: https://cloud.google.com/cpp/docs/setup
+
+*/
+
+/**
+@page storage-endpoint-example Override the Default Endpoint
+
+In some cases, you may need to override the default endpoint used by the client
+library. The `google::cloud::storage::RestEndpointOption` can be used in this
+case:
+
+@snippet storage_client_initialization_samples.cc set-client-endpoint
+*/
+
+/**
+@page storage-auth-example Override the authentication configuration
+
+Some applications cannot use the default authentication mechanism (known as
+[Application Default Credentials]). You can override this default using
+`google::cloud::UnifiedCredentialsOption`. The following example shows how
+to explicitly load a service account key file.
+
+@snippet storage_client_initialization_samples.cc service-account-keyfile
+
+Keep in mind that we chose this as an example because it is relatively easy to
+understand. Consult the [Best practices for managing service account keys]
+guide for more details.
+
+@see @ref guac - for more information on the factory functions to create
+`google::cloud::Credentials` objects.
+
+[Best practices for managing service account keys]: https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys
+[Application Default Credentials]: https://cloud.google.com/docs/authentication#adc
+*/
+
+/**
+@page storage-retry-examples Override the default retry policies
+
+The library automatically retries requests that fail with transient errors, and
+follows the [recommended
+practice](https://cloud.google.com/storage/docs/exponential-backoff) to backoff
+between retries. Application developers can override the default
+[retry](@ref google::cloud::storage::RetryPolicy) and
+[backoff](@ref google::cloud::storage::BackoffPolicy) policies:
+
+@snippet storage_object_samples.cc insert object modified retry
+
+The default policies are to continue retrying for up to 15 minutes, and to
+use truncated (at 5 minutes) exponential backoff, doubling the maximum backoff
+period between retries.
+
+By default the library retries all operations, even those that are not
+idempotent. Application developers can override the
+[idempotency policy](@ref google::cloud::storage::IdempotencyPolicy) to follow a
+more conservative approach:
+
+@snippet storage_object_samples.cc insert object strict idempotency
+
+@see [LimitedTimeRetryPolicy](@ref google::cloud::storage::LimitedTimeRetryPolicy)
+   and [LimitedErrorCountRetryPolicy](@ref google::cloud::storage::LimitedErrorCountRetryPolicy)
+   for alternative retry policies.
+
+@see [ExponentialBackoffPolicy](@ref google::cloud::storage::ExponentialBackoffPolicy)
+   to configure different parameters for the exponential backoff policy.
+
+@see [AlwaysRetryIdempotencyPolicy](@ref google::cloud::storage::AlwaysRetryIdempotencyPolicy)
+   and [StrictIdempotencyPolicy](@ref google::cloud::storage::StrictIdempotencyPolicy)
+   for alternative idempotency policies.
+
+*/
+
+/**
+@page storage-universe-domain-example Override the Default Universe Domain
+
+In some cases, you may need to override the default universe domain used by the
+client library. Use `AddUniverseDomainOption` when initializing the client
+library to change this default.
+
+@snippet storage_client_initialization_samples.cc set-client-universe-domain
+*/

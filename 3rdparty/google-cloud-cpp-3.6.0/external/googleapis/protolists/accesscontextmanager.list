@@ -1,0 +1,6 @@
+@googleapis//google/identity/accesscontextmanager/type:device_resources.proto
+@googleapis//google/identity/accesscontextmanager/v1:access_context_manager.proto
+@googleapis//google/identity/accesscontextmanager/v1:access_level.proto
+@googleapis//google/identity/accesscontextmanager/v1:access_policy.proto
+@googleapis//google/identity/accesscontextmanager/v1:gcp_user_access_binding.proto
+@googleapis//google/identity/accesscontextmanager/v1:service_perimeter.proto

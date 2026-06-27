@@ -1,0 +1,94 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_PUBSUB_INTERNAL_SUBSCRIPTION_CONCURRENCY_CONTROL_H
+#define GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_PUBSUB_INTERNAL_SUBSCRIPTION_CONCURRENCY_CONTROL_H
+
+#include "google/cloud/pubsub/exactly_once_ack_handler.h"
+#include "google/cloud/pubsub/internal/batch_callback.h"
+#include "google/cloud/pubsub/internal/session_shutdown_manager.h"
+#include "google/cloud/pubsub/internal/subscription_message_source.h"
+#include "google/cloud/pubsub/message.h"
+#include "google/cloud/pubsub/version.h"
+#include <functional>
+#include <memory>
+#include <string>
+
+namespace google {
+namespace cloud {
+namespace pubsub_internal {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+
+class SubscriptionConcurrencyControl
+    : public std::enable_shared_from_this<SubscriptionConcurrencyControl> {
+ public:
+  static std::shared_ptr<SubscriptionConcurrencyControl> Create(
+      google::cloud::CompletionQueue cq,
+      std::shared_ptr<SessionShutdownManager> shutdown_manager,
+      std::shared_ptr<SubscriptionMessageSource> source,
+      pubsub::Subscription subscription, std::size_t max_concurrency) {
+    return std::shared_ptr<SubscriptionConcurrencyControl>(
+        new SubscriptionConcurrencyControl(
+            std::move(cq), std::move(shutdown_manager), std::move(source),
+            std::move(subscription), max_concurrency));
+  }
+
+  void Start(std::shared_ptr<BatchCallback> cb);
+  void Shutdown();
+  future<Status> AckMessage(std::string const& ack_id);
+  future<Status> NackMessage(std::string const& ack_id);
+
+ private:
+  SubscriptionConcurrencyControl(
+      google::cloud::CompletionQueue cq,
+      std::shared_ptr<SessionShutdownManager> shutdown_manager,
+      std::shared_ptr<SubscriptionMessageSource> source,
+      pubsub::Subscription subscription, std::size_t max_concurrency)
+      : cq_(std::move(cq)),
+        shutdown_manager_(std::move(shutdown_manager)),
+        source_(std::move(source)),
+        subscription_(std::move(subscription)),
+        max_concurrency_(max_concurrency) {}
+
+  void MessageHandled();
+  void OnMessage(google::pubsub::v1::ReceivedMessage m);
+  void OnMessageAsync(google::pubsub::v1::ReceivedMessage m,
+                      std::weak_ptr<SubscriptionConcurrencyControl> w);
+
+  std::weak_ptr<SubscriptionConcurrencyControl> WeakFromThis() {
+    return shared_from_this();
+  }
+
+  std::size_t total_messages() const {
+    return message_count_ + messages_requested_;
+  }
+
+  google::cloud::CompletionQueue cq_;
+  std::shared_ptr<SessionShutdownManager> const shutdown_manager_;
+  std::shared_ptr<SubscriptionMessageSource> const source_;
+  pubsub::Subscription subscription_;
+  std::size_t const max_concurrency_;
+
+  std::mutex mu_;
+  std::shared_ptr<BatchCallback> callback_;
+  std::size_t message_count_ = 0;
+  std::size_t messages_requested_ = 0;
+};
+
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace pubsub_internal
+}  // namespace cloud
+}  // namespace google
+
+#endif  // GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_PUBSUB_INTERNAL_SUBSCRIPTION_CONCURRENCY_CONTROL_H

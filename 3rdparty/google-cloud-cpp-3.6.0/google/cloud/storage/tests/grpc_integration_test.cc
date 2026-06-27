@@ -1,0 +1,226 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/storage/testing/storage_integration_test.h"
+#include "google/cloud/internal/getenv.h"
+#include "google/cloud/testing_util/setenv.h"
+#include "google/cloud/testing_util/status_matchers.h"
+#include <gmock/gmock.h>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace google {
+namespace cloud {
+namespace storage {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+namespace {
+
+using ::google::cloud::internal::GetEnv;
+using ::testing::IsEmpty;
+using ::testing::Not;
+
+class GrpcIntegrationTest
+    : public google::cloud::storage::testing::StorageIntegrationTest {
+ protected:
+  GrpcIntegrationTest() = default;
+
+  void SetUp() override {
+    project_id_ = GetEnv("GOOGLE_CLOUD_PROJECT").value_or("");
+    ASSERT_THAT(project_id_, Not(IsEmpty()))
+        << "GOOGLE_CLOUD_PROJECT is not set";
+
+    bucket_name_ =
+        GetEnv("GOOGLE_CLOUD_CPP_STORAGE_TEST_BUCKET_NAME").value_or("");
+    ASSERT_THAT(bucket_name_, Not(IsEmpty()))
+        << "GOOGLE_CLOUD_CPP_STORAGE_TEST_BUCKET_NAME is not set";
+  }
+
+  std::string project_id() const { return project_id_; }
+  std::string bucket_name() const { return bucket_name_; }
+
+ private:
+  std::string project_id_;
+  std::string bucket_name_;
+};
+
+TEST_F(GrpcIntegrationTest, ObjectCRUD) {
+  auto bucket_client = MakeBucketIntegrationTestClient();
+  auto client = MakeIntegrationTestClient();
+  auto bucket_name = MakeRandomBucketName();
+  auto object_name = MakeRandomObjectName();
+
+  auto bucket_metadata = bucket_client.CreateBucketForProject(
+      bucket_name, project_id(), BucketMetadata());
+  ASSERT_STATUS_OK(bucket_metadata);
+
+  EXPECT_EQ(bucket_name, bucket_metadata->name());
+
+  auto object_metadata = client.InsertObject(
+      bucket_name, object_name, LoremIpsum(), IfGenerationMatch(0));
+  ASSERT_STATUS_OK(object_metadata);
+
+  auto stream = client.ReadObject(bucket_name, object_name);
+
+  std::string actual(std::istreambuf_iterator<char>{stream}, {});
+  EXPECT_EQ(LoremIpsum(), actual);
+  EXPECT_STATUS_OK(stream.status());
+
+  // This is part of the test, not just a cleanup.
+  auto delete_object_status = client.DeleteObject(
+      bucket_name, object_name, Generation(object_metadata->generation()));
+  EXPECT_STATUS_OK(delete_object_status);
+
+  auto delete_bucket_status = bucket_client.DeleteBucket(bucket_name);
+  EXPECT_STATUS_OK(delete_bucket_status);
+}
+
+TEST_F(GrpcIntegrationTest, WriteResume) {
+  auto bucket_client = MakeBucketIntegrationTestClient();
+  auto client = MakeIntegrationTestClient();
+  auto bucket_name = MakeRandomBucketName();
+  auto object_name = MakeRandomObjectName();
+
+  auto bucket_metadata = bucket_client.CreateBucketForProject(
+      bucket_name, project_id(), BucketMetadata());
+  ASSERT_STATUS_OK(bucket_metadata);
+
+  // We will construct the expected response while streaming the data up.
+  std::ostringstream expected;
+
+  // Create the object, but only if it does not exist already.
+  std::string session_id;
+  {
+    auto old_os =
+        client.WriteObject(bucket_name, object_name, IfGenerationMatch(0),
+                           NewResumableUploadSession());
+    ASSERT_TRUE(old_os.good()) << "status=" << old_os.metadata().status();
+    session_id = old_os.resumable_session_id();
+    std::move(old_os).Suspend();
+  }
+
+  auto os = client.WriteObject(bucket_name, object_name,
+                               RestoreResumableUploadSession(session_id));
+  ASSERT_TRUE(os.good()) << "status=" << os.metadata().status();
+  EXPECT_EQ(session_id, os.resumable_session_id());
+  os << LoremIpsum();
+  os.Close();
+  ASSERT_STATUS_OK(os.metadata());
+  ScheduleForDelete(*os.metadata());
+
+  ObjectMetadata meta = os.metadata().value();
+  EXPECT_EQ(object_name, meta.name());
+  EXPECT_EQ(bucket_name, meta.bucket());
+  if (UsingEmulator()) {
+    EXPECT_TRUE(meta.has_metadata("x_emulator_upload"));
+    EXPECT_EQ("resumable", meta.metadata("x_emulator_upload"));
+  }
+
+  auto status = client.DeleteObject(bucket_name, object_name);
+  EXPECT_STATUS_OK(status);
+
+  auto delete_bucket_status = bucket_client.DeleteBucket(bucket_name);
+  EXPECT_STATUS_OK(delete_bucket_status);
+}
+
+TEST_F(GrpcIntegrationTest, InsertLarge) {
+  auto bucket_client = MakeBucketIntegrationTestClient();
+  auto client = MakeIntegrationTestClient();
+  auto bucket_name = MakeRandomBucketName();
+  auto object_name = MakeRandomObjectName();
+
+  auto bucket_metadata = bucket_client.CreateBucketForProject(
+      bucket_name, project_id(), BucketMetadata());
+  ASSERT_STATUS_OK(bucket_metadata);
+  ScheduleForDelete(*bucket_metadata);
+
+  // Insert an object that is larger than 4 MiB, and its size is not a
+  // multiple of 256 KiB.
+  auto const desired_size = 8 * 1024 * 1024L + 253 * 1024 + 15;
+  auto data = MakeRandomData(desired_size);
+  auto metadata =
+      client.InsertObject(bucket_name, object_name, data, IfGenerationMatch(0));
+  ASSERT_STATUS_OK(metadata);
+  ScheduleForDelete(*metadata);
+
+  EXPECT_EQ(desired_size, metadata->size());
+}
+
+TEST_F(GrpcIntegrationTest, StreamLargeChunks) {
+  auto bucket_client = MakeBucketIntegrationTestClient();
+  auto client = MakeIntegrationTestClient();
+  auto bucket_name = MakeRandomBucketName();
+  auto object_name = MakeRandomObjectName();
+
+  auto bucket_metadata = bucket_client.CreateBucketForProject(
+      bucket_name, project_id(), BucketMetadata());
+  ASSERT_STATUS_OK(bucket_metadata);
+  ScheduleForDelete(*std::move(bucket_metadata));
+
+  // Insert an object in chunks larger than 4 MiB each.
+  auto const desired_size = 8 * 1024 * 1024L;
+  auto data = MakeRandomData(desired_size);
+  auto stream =
+      client.WriteObject(bucket_name, object_name, IfGenerationMatch(0));
+  stream.write(data.data(), data.size());
+  EXPECT_TRUE(stream.good());
+  stream.write(data.data(), data.size());
+  EXPECT_TRUE(stream.good());
+  stream.Close();
+  EXPECT_FALSE(stream.bad());
+  ASSERT_STATUS_OK(stream.metadata());
+  ScheduleForDelete(stream.metadata().value());
+
+  EXPECT_EQ(2 * desired_size, stream.metadata()->size());
+}
+
+TEST_F(GrpcIntegrationTest, QuotaUser) {
+  auto client = MakeIntegrationTestClient();
+  auto object_name = MakeRandomObjectName();
+
+  auto metadata =
+      client.InsertObject(bucket_name(), object_name, LoremIpsum(),
+                          IfGenerationMatch(0), QuotaUser("test-only"));
+  ASSERT_STATUS_OK(metadata);
+  ScheduleForDelete(*metadata);
+}
+
+TEST_F(GrpcIntegrationTest, FieldFilter) {
+  if (UsingEmulator()) GTEST_SKIP();
+  auto const* fields = UsingGrpc() ? "resource.bucket,resource.name,resource."
+                                     "generation,resource.content_type"
+                                   : "bucket,name,generation,contentType";
+  auto client = MakeIntegrationTestClient();
+  auto object_name = MakeRandomObjectName();
+
+  auto metadata = client.InsertObject(
+      bucket_name(), object_name, LoremIpsum(), IfGenerationMatch(0),
+      ContentType("text/plain"), ContentEncoding("utf-8"), Fields(fields));
+  ASSERT_STATUS_OK(metadata);
+  ScheduleForDelete(*metadata);
+
+  // If the Fields() filter works, then `size()` and `content_encoding()` should
+  // have default values (despite having non-defaults in production) but the
+  // `content_type()` should have the value set in production.
+  EXPECT_EQ(metadata->size(), 0);
+  EXPECT_EQ(metadata->content_encoding(), "");
+  EXPECT_EQ(metadata->content_type(), "text/plain");
+}
+
+}  // namespace
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace storage
+}  // namespace cloud
+}  // namespace google

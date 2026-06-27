@@ -1,0 +1,210 @@
+// Copyright 2017 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/bigtable/benchmarks/benchmark.h"
+#include "google/cloud/internal/build_info.h"
+#include "google/cloud/testing_util/status_matchers.h"
+#include <gmock/gmock.h>
+
+namespace google {
+namespace cloud {
+namespace bigtable {
+namespace benchmarks {
+namespace {
+
+using ::testing::HasSubstr;
+
+char arg0[] = "program";
+char arg1[] = "--project-id=foo";
+char arg2[] = "--instance-id=barquaz";
+char arg3[] = "--app-profile-id=profile";
+char arg4[] = "--thread-count=4";
+char arg5[] = "--test-duration=300s";
+char arg6[] = "--table-size=10000";
+char arg7[] = "--use-embedded-server=True";
+
+TEST(BenchmarkTest, Create) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  {
+    Benchmark bm(*options);
+    EXPECT_EQ(0, bm.create_table_count());
+    std::string table_id = bm.CreateTable();
+    EXPECT_EQ(1, bm.create_table_count());
+
+    EXPECT_EQ(0, bm.delete_table_count());
+    bm.DeleteTable();
+    EXPECT_EQ(1, bm.delete_table_count());
+  }
+  SUCCEED() << "Benchmark object successfully destroyed";
+}
+
+TEST(BenchmarkTest, Populate) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  Benchmark bm(*options);
+  bm.CreateTable();
+  EXPECT_EQ(0, bm.mutate_rows_count());
+  bm.PopulateTable();
+  // The magic 10000 comes from arg5 and we accept 5% error.
+  EXPECT_GE(int(10000 * 1.05 / kBulkSize), bm.mutate_rows_count());
+  EXPECT_LE(int(10000 * 0.95 / kBulkSize), bm.mutate_rows_count());
+  bm.DeleteTable();
+}
+
+TEST(BenchmarkTest, MakeRandomKey) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  Benchmark bm(*options);
+  auto gen = google::cloud::internal::MakeDefaultPRNG();
+
+  // First make sure that the keys are not always the same.
+  auto make_some_keys = [&bm, &gen]() {
+    std::vector<std::string> keys(100);
+    std::generate(keys.begin(), keys.end(),
+                  [&bm, &gen]() { return bm.MakeRandomKey(gen); });
+    return keys;
+  };
+  auto round0 = make_some_keys();
+  auto round1 = make_some_keys();
+  EXPECT_NE(round0, round1);
+
+  // Also make sure the keys have the right format.
+  for (auto const& k : round0) {
+    EXPECT_EQ("user", k.substr(0, 4));
+    std::string suffix = k.substr(5);
+    EXPECT_FALSE(suffix.empty());
+    EXPECT_EQ(std::string::npos, suffix.find_first_not_of("0123456789"));
+  }
+}
+
+TEST(BenchmarkTest, PrintThroughputResult) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  Benchmark bm(*options);
+  BenchmarkResult result{};
+  result.elapsed = std::chrono::milliseconds(10000);
+  result.row_count = 1230;
+  result.operations.resize(3450);
+
+  std::ostringstream os;
+  Benchmark::PrintThroughputResult(os, "foo", "bar", result);
+  std::string output = os.str();
+
+  // We do not want a change detector test, so the following assertions are
+  // fairly minimal.
+
+  // The output includes "XX ops/s" where XX is the operations count.
+  EXPECT_THAT(output, HasSubstr("345 ops/s"));
+
+  // The output includes "YY rows/s" where YY is the row count.
+  EXPECT_THAT(output, HasSubstr("123 rows/s"));
+}
+
+TEST(BenchmarkTest, PrintLatencyResult) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  Benchmark bm(*options);
+  BenchmarkResult result{};
+  result.elapsed = std::chrono::milliseconds(1000);
+  result.row_count = 100;
+  result.operations.resize(100);
+  int count = 0;
+  std::generate(result.operations.begin(), result.operations.end(), [&count]() {
+    return OperationResult{::google::cloud::Status{},
+                           std::chrono::microseconds(++count * 100)};
+  });
+
+  std::ostringstream os;
+  Benchmark::PrintLatencyResult(os, "foo", "bar", result);
+  std::string output = os.str();
+
+  // We do not want a change detector test, so the following assertions are
+  // fairly minimal.
+
+  // The output includes "XX ops/s" where XX is the operations count.
+  EXPECT_THAT(output, HasSubstr("100 ops/s"));
+
+  // And the percentiles are easy to estimate for the generated data. Note that
+  // this test depends on the duration formatting as specified by the
+  // `absl::time` library.
+  EXPECT_THAT(output, HasSubstr("p0=100.000us"));
+  EXPECT_THAT(output, HasSubstr("p95=9.500ms"));
+  EXPECT_THAT(output, HasSubstr("p100=10.000ms"));
+}
+
+TEST(BenchmarkTest, PrintCsv) {
+  char* argv[] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  auto options = ParseArgs(argc, argv, "");
+  ASSERT_STATUS_OK(options);
+
+  Benchmark bm(*options);
+  BenchmarkResult result{};
+  result.elapsed = std::chrono::milliseconds(1000);
+  result.row_count = 123;
+  result.operations.resize(100);
+  int count = 0;
+  std::generate(result.operations.begin(), result.operations.end(), [&count]() {
+    return OperationResult{::google::cloud::Status{},
+                           std::chrono::microseconds(++count * 100)};
+  });
+
+  std::string header = Benchmark::ResultsCsvHeader();
+  auto const field_count = std::count(header.begin(), header.end(), ',');
+
+  std::ostringstream os;
+  bm.PrintResultCsv(os, "foo", "bar", "latency", result);
+  std::string output = os.str();
+
+  auto const actual_count = std::count(output.begin(), output.end(), ',');
+  EXPECT_EQ(field_count, actual_count);
+
+  // We do not want a change detector test, so the following assertions are
+  // fairly minimal.
+
+  // The output includes the version and compiler info.
+  EXPECT_THAT(output, HasSubstr(version_string()));
+  EXPECT_THAT(output, HasSubstr(::google::cloud::internal::compiler()));
+  EXPECT_THAT(output, HasSubstr(::google::cloud::internal::compiler_flags()));
+
+  // The output includes the latency results.
+  EXPECT_THAT(output, HasSubstr(",100,"));    // p0
+  EXPECT_THAT(output, HasSubstr(",9500,"));   // p95
+  EXPECT_THAT(output, HasSubstr(",10000,"));  // p100
+
+  // The output includes the throughput.
+  EXPECT_THAT(output, HasSubstr(",123,"));
+}
+
+}  // namespace
+}  // namespace benchmarks
+}  // namespace bigtable
+}  // namespace cloud
+}  // namespace google

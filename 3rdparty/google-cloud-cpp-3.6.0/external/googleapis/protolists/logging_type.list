@@ -1,0 +1,2 @@
+@googleapis//google/logging/type:http_request.proto
+@googleapis//google/logging/type:log_severity.proto

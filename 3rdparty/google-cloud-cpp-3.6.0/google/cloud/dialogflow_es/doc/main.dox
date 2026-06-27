@@ -1,0 +1,71 @@
+/*!
+
+@mainpage Dialogflow ES API C++ Client Library
+
+An idiomatic C++ client library for the [Dialogflow ES API][cloud-service-docs], a service
+to build conversational interfaces (for example, chatbots, and voice-powered apps and devices).
+There are [two editions] of Dialogflow, this library supports the ES edition.
+
+[two editions]: https://cloud.google.com/dialogflow/docs/editions
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/dialogflow_es/quickstart/` directory,
+which should give you a taste of the Dialogflow API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c dialogflow_es::AgentsClient](@ref google::cloud::dialogflow_es::AgentsClient)
+- [\c dialogflow_es::AnswerRecordsClient](@ref google::cloud::dialogflow_es::AnswerRecordsClient)
+- [\c dialogflow_es::ContextsClient](@ref google::cloud::dialogflow_es::ContextsClient)
+- [\c dialogflow_es::ConversationDatasetsClient](@ref google::cloud::dialogflow_es::ConversationDatasetsClient)
+- [\c dialogflow_es::ConversationModelsClient](@ref google::cloud::dialogflow_es::ConversationModelsClient)
+- [\c dialogflow_es::ConversationProfilesClient](@ref google::cloud::dialogflow_es::ConversationProfilesClient)
+- [\c dialogflow_es::ConversationsClient](@ref google::cloud::dialogflow_es::ConversationsClient)
+- [\c dialogflow_es::DocumentsClient](@ref google::cloud::dialogflow_es::DocumentsClient)
+- [\c dialogflow_es::EncryptionSpecServiceClient](@ref google::cloud::dialogflow_es::EncryptionSpecServiceClient)
+- [\c dialogflow_es::EntityTypesClient](@ref google::cloud::dialogflow_es::EntityTypesClient)
+- [\c dialogflow_es::EnvironmentsClient](@ref google::cloud::dialogflow_es::EnvironmentsClient)
+- [\c dialogflow_es::FulfillmentsClient](@ref google::cloud::dialogflow_es::FulfillmentsClient)
+- [\c dialogflow_es::GeneratorsClient](@ref google::cloud::dialogflow_es::GeneratorsClient)
+- [\c dialogflow_es::IntentsClient](@ref google::cloud::dialogflow_es::IntentsClient)
+- [\c dialogflow_es::KnowledgeBasesClient](@ref google::cloud::dialogflow_es::KnowledgeBasesClient)
+- [\c dialogflow_es::ParticipantsClient](@ref google::cloud::dialogflow_es::ParticipantsClient)
+- [\c dialogflow_es::SessionEntityTypesClient](@ref google::cloud::dialogflow_es::SessionEntityTypesClient)
+- [\c dialogflow_es::SessionsClient](@ref google::cloud::dialogflow_es::SessionsClient)
+- [\c dialogflow_es::VersionsClient](@ref google::cloud::dialogflow_es::VersionsClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref dialogflow_es-override-endpoint - describes how to override the default
+  endpoint.
+- @ref dialogflow_es-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref dialogflow_es-override-retry - describes how to change the default retry
+  policies.
+- @ref dialogflow_es-env - describes environment variables that can configure the behavior of the library.
+- @ref dialogflow_es-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/dialogflow/es/docs
+
+*/

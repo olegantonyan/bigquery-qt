@@ -1,0 +1,64 @@
+/*!
+
+@mainpage Cloud BigQuery C++ Client Library
+
+The Cloud BigQuery C++ Client library offers types and functions to use Cloud
+BigQuery from C++ applications.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/bigquery/quickstart/` directory, which should give you a taste of
+the Cloud BigQuery C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c bigquery_analyticshub_v1::AnalyticsHubServiceClient](@ref google::cloud::bigquery_analyticshub_v1::AnalyticsHubServiceClient)
+- [\c bigquery_biglake_v1::MetastoreServiceClient](@ref google::cloud::bigquery_biglake_v1::MetastoreServiceClient)
+- [\c bigquery_connection_v1::ConnectionServiceClient](@ref google::cloud::bigquery_connection_v1::ConnectionServiceClient)
+- [\c bigquery_datapolicies_v1::DataPolicyServiceClient](@ref google::cloud::bigquery_datapolicies_v1::DataPolicyServiceClient)
+- [\c bigquery_datapolicies_v2::DataPolicyServiceClient](@ref google::cloud::bigquery_datapolicies_v2::DataPolicyServiceClient)
+- [\c bigquery_datatransfer_v1::DataTransferServiceClient](@ref google::cloud::bigquery_datatransfer_v1::DataTransferServiceClient)
+- [\c bigquery_migration_v2::MigrationServiceClient](@ref google::cloud::bigquery_migration_v2::MigrationServiceClient)
+- [\c bigquery_reservation_v1::ReservationServiceClient](@ref google::cloud::bigquery_reservation_v1::ReservationServiceClient)
+- [\c bigquery_storage_v1::BigQueryReadClient](@ref google::cloud::bigquery_storage_v1::BigQueryReadClient)
+- [\c bigquery_storage_v1::BigQueryWriteClient](@ref google::cloud::bigquery_storage_v1::BigQueryWriteClient)
+<!-- inject-client-list-end -->
+
+## Next Steps
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref bigquery-override-endpoint - describes how to override the default
+  endpoint.
+- @ref bigquery-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref bigquery-override-retry - describes how to change the default retry
+  policies.
+- @ref bigquery-env - describes environment variables that can configure the behavior of the library.
+- @ref bigquery-override-universe-domain - describes how to override the default universe domain.
+- @ref bigquery-read-mock
+
+[resource-link]: https://console.cloud.google.com/cloud-resource-manager 'Console Resource Manager'
+[billing-link]: https://cloud.google.com/billing/docs/how-to/modify-project 'How to: Modify Project'
+[concepts-link]: https://cloud.google.com/bigquery/docs/concepts 'BigQuery Concepts'
+[github-link]: https://github.com/googleapis/google-cloud-cpp 'GitHub Repository'
+[quickstart-link]:  https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/bigquery/quickstart
+
+*/

@@ -1,0 +1,47 @@
+/*!
+
+@mainpage Managed Service for Microsoft Active Directory API C++ Client Library
+
+An idiomatic C++ client library for the
+[Managed Service for Microsoft Active Directory API][cloud-service-docs],
+a service to manage highly available, hardened Microsoft Active Directory
+domains hosted by Google Cloud.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/managedidentities/quickstart/` directory,
+which should give you a taste of the Managed Service for Microsoft Active Directory API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+The main class in this library is
+[`managedidentities_v1::ManagedIdentitiesServiceClient`](@ref google::cloud::managedidentities_v1::ManagedIdentitiesServiceClient). All RPCs are exposed
+as member functions of this class. Other classes provide helpers, configuration
+parameters, and infrastructure to mock
+[`managedidentities_v1::ManagedIdentitiesServiceClient`](@ref google::cloud::managedidentities_v1::ManagedIdentitiesServiceClient) when testing your
+application.
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref managedidentities-override-endpoint - describes how to override the default
+  endpoint.
+- @ref managedidentities-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref managedidentities-override-retry - describes how to change the default retry
+  policies.
+- @ref managedidentities-env - describes environment variables that can configure the behavior of the library.
+- @ref managedidentities-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/managed-microsoft-ad
+
+*/

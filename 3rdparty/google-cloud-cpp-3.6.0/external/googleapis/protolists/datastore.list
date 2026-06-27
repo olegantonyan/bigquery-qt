@@ -1,0 +1,8 @@
+@googleapis//google/datastore/admin/v1:datastore_admin.proto
+@googleapis//google/datastore/admin/v1:index.proto
+@googleapis//google/datastore/admin/v1:migration.proto
+@googleapis//google/datastore/v1:aggregation_result.proto
+@googleapis//google/datastore/v1:datastore.proto
+@googleapis//google/datastore/v1:entity.proto
+@googleapis//google/datastore/v1:query.proto
+@googleapis//google/datastore/v1:query_profile.proto

@@ -1,0 +1,3 @@
+@googleapis//google/cloud/policytroubleshooter/iam/v3:troubleshooter.proto
+@googleapis//google/cloud/policytroubleshooter/v1:checker.proto
+@googleapis//google/cloud/policytroubleshooter/v1:explanations.proto

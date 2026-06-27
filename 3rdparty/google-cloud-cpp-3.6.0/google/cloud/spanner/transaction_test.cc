@@ -1,0 +1,318 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/internal/disable_deprecation_warnings.inc"
+#include "google/cloud/spanner/transaction.h"
+#include "google/cloud/spanner/internal/session.h"
+#include "google/cloud/spanner/options.h"
+#include "google/cloud/options.h"
+#include <gmock/gmock.h>
+
+namespace google {
+namespace cloud {
+namespace spanner {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+namespace {
+
+using ::testing::IsEmpty;
+
+TEST(TransactionOptions, Construction) {
+  Timestamp read_timestamp{};
+  std::chrono::nanoseconds staleness{};
+
+  Transaction::ReadOnlyOptions strong;
+  Transaction::ReadOnlyOptions exact_ts(read_timestamp);
+  Transaction::ReadOnlyOptions exact_dur(staleness);
+
+  Transaction::ReadWriteOptions none;
+  Transaction::ReadWriteOptions rw_with_read_lock(
+      Transaction::ReadLockMode::kOptimistic);
+
+  Transaction::SingleUseOptions su_strong(strong);
+  Transaction::SingleUseOptions su_exact_ts(exact_ts);
+  Transaction::SingleUseOptions su_exact_dur(exact_dur);
+  Transaction::SingleUseOptions su_bounded_ts(read_timestamp);
+  Transaction::SingleUseOptions su_bounded_dur(staleness);
+}
+
+TEST(Transaction, RegularSemantics) {
+  Transaction::ReadOnlyOptions strong;
+  Transaction a(strong);
+  Transaction b = MakeReadOnlyTransaction();
+  EXPECT_NE(a, b);
+
+  Transaction c = b;
+  EXPECT_EQ(c, b);
+  EXPECT_NE(c, a);
+
+  c = a;
+  EXPECT_EQ(c, a);
+  EXPECT_NE(c, b);
+
+  Transaction d(c);
+  EXPECT_EQ(d, c);
+  EXPECT_EQ(d, a);
+
+  Transaction::ReadWriteOptions none;
+  Transaction e(none);
+  Transaction f = MakeReadWriteTransaction();
+  EXPECT_NE(e, f);
+
+  Transaction g = f;  // NOLINT(performance-unnecessary-copy-initialization)
+  EXPECT_EQ(g, f);
+  EXPECT_NE(g, e);
+
+  Transaction h = spanner_internal::MakeSingleUseTransaction(strong);
+  Transaction i = spanner_internal::MakeSingleUseTransaction(strong);
+  EXPECT_NE(h, i);
+
+  Transaction j = i;  // NOLINT(performance-unnecessary-copy-initialization)
+  EXPECT_EQ(j, i);
+  EXPECT_NE(j, h);
+}
+
+TEST(Transaction, Visit) {
+  Transaction a = MakeReadOnlyTransaction();
+  std::int64_t a_seqno;
+  spanner_internal::Visit(
+      a, [&a_seqno](spanner_internal::SessionHolder& /*session*/,
+                    StatusOr<google::spanner::v1::TransactionSelector>& s,
+                    spanner_internal::TransactionContext const& ctx) {
+        EXPECT_TRUE(s->has_begin());
+        EXPECT_TRUE(s->begin().has_read_only());
+        s->set_id("test-txn-id");
+        EXPECT_THAT(ctx.tag, IsEmpty());
+        a_seqno = ctx.seqno;
+        return 0;
+      });
+  spanner_internal::Visit(
+      a, [a_seqno](spanner_internal::SessionHolder& /*session*/,
+                   StatusOr<google::spanner::v1::TransactionSelector>& s,
+                   spanner_internal::TransactionContext const& ctx) {
+        EXPECT_EQ("test-txn-id", s->id());
+        EXPECT_THAT(ctx.tag, IsEmpty());
+        EXPECT_GT(ctx.seqno, a_seqno);
+        return 0;
+      });
+}
+
+TEST(Transaction, SessionAffinity) {
+  auto a_session =
+      spanner_internal::MakeDissociatedSessionHolder("SessionAffinity");
+  auto opts = Transaction::ReadWriteOptions().WithTag("app=cart,env=dev");
+  Transaction a = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      a, [&a_session](spanner_internal::SessionHolder& session,
+                      StatusOr<google::spanner::v1::TransactionSelector>& s,
+                      spanner_internal::TransactionContext const& ctx) {
+        EXPECT_FALSE(session);
+        EXPECT_TRUE(s->has_begin());
+        session = a_session;
+        s->set_id("a-txn-id");
+        EXPECT_EQ(ctx.tag, "app=cart,env=dev");
+        return 0;
+      });
+  Transaction b = MakeReadWriteTransaction(a, opts);
+  spanner_internal::Visit(
+      b, [&a_session](spanner_internal::SessionHolder& session,
+                      StatusOr<google::spanner::v1::TransactionSelector>& s,
+                      spanner_internal::TransactionContext const& ctx) {
+        EXPECT_EQ(a_session, session);  // session affinity
+        EXPECT_TRUE(s->has_begin());    // but a new transaction
+        EXPECT_EQ(ctx.tag, "app=cart,env=dev");
+        EXPECT_THAT(s->begin()
+                        .read_write()
+                        .multiplexed_session_previous_transaction_id(),
+                    IsEmpty());
+        return 0;
+      });
+}
+
+TEST(Transaction, MultiplexedPreviousTransactionId) {
+  std::string aborted_txn_id = "aborted-txn-id";
+  auto mux_session = spanner_internal::MakeMultiplexedSessionHolder(
+      "multiplexed", std::make_shared<spanner_internal::Session::Clock>());
+  auto opts = Transaction::ReadWriteOptions().WithTag("app=cart,env=dev");
+  Transaction aborted_txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      aborted_txn, [&](spanner_internal::SessionHolder& session,
+                       StatusOr<google::spanner::v1::TransactionSelector>& s,
+                       spanner_internal::TransactionContext const& ctx) {
+        EXPECT_FALSE(session);
+        EXPECT_TRUE(s->has_begin());
+        session = mux_session;
+        s->set_id(aborted_txn_id);
+        EXPECT_EQ(ctx.tag, "app=cart,env=dev");
+        return 0;
+      });
+  Transaction retry_txn = MakeReadWriteTransaction(aborted_txn, opts);
+  spanner_internal::Visit(
+      retry_txn, [&](spanner_internal::SessionHolder& session,
+                     StatusOr<google::spanner::v1::TransactionSelector>& s,
+                     spanner_internal::TransactionContext const& ctx) {
+        EXPECT_EQ(mux_session, session);
+        EXPECT_TRUE(s->has_begin());
+        EXPECT_EQ(s->begin()
+                      .read_write()
+                      .multiplexed_session_previous_transaction_id(),
+                  aborted_txn_id);
+        EXPECT_EQ(ctx.tag, "app=cart,env=dev");
+        return 0;
+      });
+}
+
+TEST(Transaction, IsolationLevelPrecedence) {
+  internal::OptionsSpan span(Options{}.set<TransactionIsolationLevelOption>(
+      Transaction::IsolationLevel::kSerializable));
+
+  // Case 1: Per-call overrides default options
+  auto opts = Transaction::ReadWriteOptions().WithIsolationLevel(
+      Transaction::IsolationLevel::kRepeatableRead);
+  Transaction txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      txn, [](spanner_internal::SessionHolder&,
+              StatusOr<google::spanner::v1::TransactionSelector>& s,
+              spanner_internal::TransactionContext const&) {
+        EXPECT_EQ(s->begin().isolation_level(),
+                  google::spanner::v1::TransactionOptions::REPEATABLE_READ);
+        return 0;
+      });
+
+  // Case 2: Fallback to default options
+  auto opts_default = Transaction::ReadWriteOptions();
+  Transaction txn_default = MakeReadWriteTransaction(opts_default);
+  spanner_internal::Visit(
+      txn_default, [](spanner_internal::SessionHolder&,
+                      StatusOr<google::spanner::v1::TransactionSelector>& s,
+                      spanner_internal::TransactionContext const&) {
+        EXPECT_EQ(s->begin().isolation_level(),
+                  google::spanner::v1::TransactionOptions::SERIALIZABLE);
+        return 0;
+      });
+}
+
+TEST(Transaction, IsolationLevelNotSpecified) {
+  // Case: Isolation not specified in transaction options or default options
+  auto opts = Transaction::ReadWriteOptions();
+  Transaction txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      txn, [](spanner_internal::SessionHolder&,
+              StatusOr<google::spanner::v1::TransactionSelector>& s,
+              spanner_internal::TransactionContext const&) {
+        EXPECT_EQ(s->begin().isolation_level(),
+                  google::spanner::v1::TransactionOptions::
+                      ISOLATION_LEVEL_UNSPECIFIED);
+        return 0;
+      });
+}
+
+TEST(Transaction, ReadLockModePrecedence) {
+  internal::OptionsSpan span(Options{}.set<TransactionReadLockModeOption>(
+      Transaction::ReadLockMode::kOptimistic));
+
+  // Case 1: Per-call overrides default options
+  auto opts =
+      Transaction::ReadWriteOptions(Transaction::ReadLockMode::kPessimistic);
+  Transaction txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      txn, [](spanner_internal::SessionHolder&,
+              StatusOr<google::spanner::v1::TransactionSelector>& s,
+              spanner_internal::TransactionContext const&) {
+        EXPECT_EQ(
+            s->begin().read_write().read_lock_mode(),
+            google::spanner::v1::TransactionOptions_ReadWrite_ReadLockMode::
+                TransactionOptions_ReadWrite_ReadLockMode_PESSIMISTIC);
+        return 0;
+      });
+
+  // Case 2: Fallback to default options
+  auto opts_default = Transaction::ReadWriteOptions();
+  Transaction txn_default = MakeReadWriteTransaction(opts_default);
+  spanner_internal::Visit(
+      txn_default, [](spanner_internal::SessionHolder&,
+                      StatusOr<google::spanner::v1::TransactionSelector>& s,
+                      spanner_internal::TransactionContext const&) {
+        EXPECT_EQ(
+            s->begin().read_write().read_lock_mode(),
+            google::spanner::v1::TransactionOptions_ReadWrite_ReadLockMode::
+                TransactionOptions_ReadWrite_ReadLockMode_OPTIMISTIC);
+        return 0;
+      });
+}
+
+TEST(Transaction, ReadLockModeNotSpecified) {
+  // Case: Read lock mode not specified in transaction options or default
+  // options
+  auto opts = Transaction::ReadWriteOptions();
+  Transaction txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(txn, [](spanner_internal::SessionHolder&,
+                                  StatusOr<
+                                      google::spanner::v1::TransactionSelector>&
+                                      s,
+                                  spanner_internal::TransactionContext const&) {
+    EXPECT_EQ(
+        s->begin().read_write().read_lock_mode(),
+        google::spanner::v1::TransactionOptions_ReadWrite_ReadLockMode::
+            TransactionOptions_ReadWrite_ReadLockMode_READ_LOCK_MODE_UNSPECIFIED);
+    return 0;
+  });
+}
+
+TEST(Transaction, ReadWriteOptionsWithTag) {
+  auto opts = Transaction::ReadWriteOptions().WithTag("test-tag");
+  Transaction txn = MakeReadWriteTransaction(opts);
+  spanner_internal::Visit(
+      txn, [&](spanner_internal::SessionHolder& /*session*/,
+               StatusOr<google::spanner::v1::TransactionSelector>& s,
+               spanner_internal::TransactionContext const& ctx) {
+        EXPECT_TRUE(s->has_begin());
+        EXPECT_TRUE(s->begin().has_read_write());
+        EXPECT_EQ(ctx.tag, "test-tag");
+        return 0;
+      });
+}
+
+TEST(Transaction, ReadWriteOptionsWithReadLockMode) {
+  auto check_lock_mode =
+      [](Transaction::ReadLockMode mode,
+         google::spanner::v1::TransactionOptions_ReadWrite_ReadLockMode
+             expected_proto_mode) {
+        auto opts = Transaction::ReadWriteOptions(mode);
+        Transaction txn = MakeReadWriteTransaction(opts);
+        spanner_internal::Visit(
+            txn, [&](spanner_internal::SessionHolder& /*session*/,
+                     StatusOr<google::spanner::v1::TransactionSelector>& s,
+                     spanner_internal::TransactionContext const& /*ctx*/) {
+              EXPECT_TRUE(s->has_begin());
+              EXPECT_TRUE(s->begin().has_read_write());
+              EXPECT_EQ(s->begin().read_write().read_lock_mode(),
+                        expected_proto_mode);
+              return 0;
+            });
+      };
+
+  check_lock_mode(
+      Transaction::ReadLockMode::kPessimistic,
+      google::spanner::v1::TransactionOptions_ReadWrite::PESSIMISTIC);
+  check_lock_mode(
+      Transaction::ReadLockMode::kOptimistic,
+      google::spanner::v1::TransactionOptions_ReadWrite::OPTIMISTIC);
+}
+
+}  // namespace
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace spanner
+}  // namespace cloud
+}  // namespace google
+#include "google/cloud/internal/diagnostics_pop.inc"

@@ -1,0 +1,50 @@
+/*!
+
+@mainpage Cloud IDS API C++ Client Library
+
+An idiomatic C++ client library for the
+[Cloud Intrusion Detection System (IDS) API][cloud-service-docs], a
+service to detect malware, spyware, command-and-control attacks, and
+other network-based threats. Its security efficacy is industry leading,
+built with Palo Alto Networks technologies. When you use this product,
+your organization name and consumption levels will be shared with Palo
+Alto Networks.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/ids/quickstart/` directory,
+which should give you a taste of the Cloud IDS API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+The main class in this library is
+[`ids_v1::IDSClient`](@ref google::cloud::ids_v1::IDSClient). All RPCs are exposed
+as member functions of this class. Other classes provide helpers, configuration
+parameters, and infrastructure to mock
+[`ids_v1::IDSClient`](@ref google::cloud::ids_v1::IDSClient) when testing your
+application.
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref ids-override-endpoint - describes how to override the default
+  endpoint.
+- @ref ids-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref ids-override-retry - describes how to change the default retry
+  policies.
+- @ref ids-env - describes environment variables that can configure the behavior of the library.
+- @ref ids-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/ids
+
+*/

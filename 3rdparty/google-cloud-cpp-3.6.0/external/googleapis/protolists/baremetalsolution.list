@@ -1,0 +1,11 @@
+@googleapis//google/cloud/baremetalsolution/v2:baremetalsolution.proto
+@googleapis//google/cloud/baremetalsolution/v2:common.proto
+@googleapis//google/cloud/baremetalsolution/v2:instance.proto
+@googleapis//google/cloud/baremetalsolution/v2:lun.proto
+@googleapis//google/cloud/baremetalsolution/v2:network.proto
+@googleapis//google/cloud/baremetalsolution/v2:nfs_share.proto
+@googleapis//google/cloud/baremetalsolution/v2:osimage.proto
+@googleapis//google/cloud/baremetalsolution/v2:provisioning.proto
+@googleapis//google/cloud/baremetalsolution/v2:ssh_key.proto
+@googleapis//google/cloud/baremetalsolution/v2:volume.proto
+@googleapis//google/cloud/baremetalsolution/v2:volume_snapshot.proto

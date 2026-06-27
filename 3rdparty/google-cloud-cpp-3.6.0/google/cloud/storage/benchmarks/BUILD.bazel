@@ -1,0 +1,91 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(":storage_benchmark_programs.bzl", "storage_benchmark_programs")
+load(":storage_benchmarks.bzl", "storage_benchmarks_hdrs", "storage_benchmarks_srcs")
+load(":storage_benchmarks_unit_tests.bzl", "storage_benchmarks_unit_tests")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "storage_benchmarks",
+    testonly = True,
+    srcs = storage_benchmarks_srcs,
+    hdrs = storage_benchmarks_hdrs,
+    local_defines = select({
+        "//google/cloud/storage:ctype_cord_workaround_enabled": ["GOOGLE_CLOUD_CPP_ENABLE_CTYPE_CORD_WORKAROUND"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//:common",
+        "//:grpc_utils",
+        "//:storage",
+        "//google/cloud/storage:storage_client_testing",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@curl",
+        "@googleapis//google/storage/v2:storage_cc_grpc",
+        "@googleapis//google/storage/v2:storage_cc_proto",
+    ],
+)
+
+[cc_binary(
+    name = program.replace("/", "_").replace(".cc", ""),
+    testonly = True,
+    srcs = [program],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    deps = [
+        ":storage_benchmarks",
+        "//:common",
+        "//:storage",
+        "//google/cloud/storage:storage_client_testing",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@abseil-cpp//absl/strings",
+        "@curl",
+    ],
+) for program in storage_benchmark_programs]
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    deps = [
+        ":storage_benchmarks",
+        "//:common",
+        "//:storage",
+        "//google/cloud/storage:storage_client_testing",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@curl",
+        "@googletest//:gtest_main",
+    ],
+) for test in storage_benchmarks_unit_tests]
+
+cc_binary(
+    name = "async_throughput_benchmark",
+    testonly = True,
+    srcs = ["async_throughput_benchmark.cc"],
+    tags = ["manual"],
+    deps = [
+        ":storage_benchmarks",
+        "//:storage_grpc",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+    ],
+)

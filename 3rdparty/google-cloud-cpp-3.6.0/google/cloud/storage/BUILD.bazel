@@ -1,0 +1,267 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load(":google_cloud_cpp_storage.bzl", "google_cloud_cpp_storage_hdrs", "google_cloud_cpp_storage_srcs")
+load(":google_cloud_cpp_storage_grpc.bzl", "google_cloud_cpp_storage_grpc_hdrs", "google_cloud_cpp_storage_grpc_srcs")
+load(":google_cloud_cpp_storage_grpc_mocks.bzl", "google_cloud_cpp_storage_grpc_mocks_hdrs")
+load(":storage_client_benchmarks.bzl", "storage_client_benchmarks")
+load(":storage_client_grpc_unit_tests.bzl", "storage_client_grpc_unit_tests")
+load(":storage_client_testing.bzl", "storage_client_testing_hdrs", "storage_client_testing_srcs")
+load(":storage_client_unit_tests.bzl", "storage_client_unit_tests")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # Apache 2.0
+
+GOOGLE_CLOUD_STORAGE_WIN_DEFINES = [
+    "WIN32_LEAN_AND_MEAN",
+    "_WIN32_WINNT=0x0A00",
+]
+
+config_setting(
+    name = "ctype_cord_workaround_enabled",
+    flag_values = {"//:enable-ctype-cord-workaround": "true"},
+    visibility = [":__subpackages__"],
+)
+
+bool_flag(
+    name = "enable_grpc_metrics",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "grpc_metrics_enabled",
+    flag_values = {":enable_grpc_metrics": "true"},
+)
+
+filegroup(
+    name = "public_grpc_hdrs",
+    srcs = [h for h in google_cloud_cpp_storage_grpc_hdrs if not h.startswith("internal/")],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_storage_grpc",
+    srcs = google_cloud_cpp_storage_grpc_srcs,
+    hdrs = google_cloud_cpp_storage_grpc_hdrs,
+    defines = ["GOOGLE_CLOUD_CPP_STORAGE_HAVE_GRPC"],
+    local_defines = select({
+        "@platforms//os:windows": GOOGLE_CLOUD_STORAGE_WIN_DEFINES,
+        "//conditions:default": [],
+    }) + select({
+        ":ctype_cord_workaround_enabled": ["GOOGLE_CLOUD_CPP_ENABLE_CTYPE_CORD_WORKAROUND"],
+        "//conditions:default": [],
+    }) + select({
+        ":grpc_metrics_enabled": ["GOOGLE_CLOUD_CPP_STORAGE_WITH_OTEL_METRICS"],
+        "//conditions:default": [],
+    }),
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_storage",
+        "//:grpc_utils",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@curl",
+        "@googleapis//google/storage/v2:storage_cc_grpc",
+        "@googleapis//google/storage/v2:storage_cc_proto",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+    ] + select({
+        ":grpc_metrics_enabled": [
+            "//:opentelemetry",
+            "@grpc//:grpcpp_otel_plugin",
+            "@opentelemetry-cpp//sdk/src/metrics",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+filegroup(
+    name = "grpc_mocks_hdrs",
+    srcs = [h for h in google_cloud_cpp_storage_grpc_mocks_hdrs if not h.startswith("internal/")],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_storage_grpc_mocks",
+    testonly = True,
+    hdrs = google_cloud_cpp_storage_grpc_mocks_hdrs,
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_storage",
+        ":google_cloud_cpp_storage_grpc",
+        "@googletest//:gtest",
+    ],
+)
+
+filegroup(
+    name = "public_hdrs",
+    srcs = [h for h in google_cloud_cpp_storage_hdrs if not h.startswith("internal/")],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_storage",
+    srcs = google_cloud_cpp_storage_srcs,
+    hdrs = google_cloud_cpp_storage_hdrs,
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    local_defines = select({
+        "@platforms//os:windows": GOOGLE_CLOUD_STORAGE_WIN_DEFINES,
+        "//conditions:default": [],
+    }),
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        "//:common",
+        "//google/cloud:google_cloud_cpp_rest_internal",
+        "@abseil-cpp//absl/crc:crc32c",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:span",
+        "@abseil-cpp//absl/types:variant",
+        "@curl",
+        "@nlohmann_json//:json",
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "@boringssl//:crypto",
+            "@boringssl//:ssl",
+        ],
+    }),
+)
+
+filegroup(
+    name = "mocks",
+    srcs = [],
+    visibility = ["//:__pkg__"],
+)
+
+# This empty library is used to simplify the top-level BUILD.bazel file.
+cc_library(
+    name = "google_cloud_cpp_storage_mocks",
+    testonly = True,
+    srcs = [],
+    hdrs = [],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_storage",
+        "//:common",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "storage_client_testing",
+    testonly = True,
+    srcs = storage_client_testing_srcs,
+    hdrs = storage_client_testing_hdrs,
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_storage",
+        ":google_cloud_cpp_storage_grpc",
+        "//:common",
+        "//google/cloud:google_cloud_cpp_mocks",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_rest_private",
+        "@curl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    deps = [
+        ":google_cloud_cpp_storage",
+        ":storage_client_testing",
+        "//:common",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@curl",
+        "@googletest//:gtest_main",
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "@boringssl//:crypto",
+            "@boringssl//:ssl",
+        ],
+    }),
+) for test in storage_client_unit_tests]
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    local_defines = select({
+        "@platforms//os:windows": GOOGLE_CLOUD_STORAGE_WIN_DEFINES,
+        "//conditions:default": [],
+    }) + select({
+        ":ctype_cord_workaround_enabled": ["GOOGLE_CLOUD_CPP_ENABLE_CTYPE_CORD_WORKAROUND"],
+        "//conditions:default": [],
+    }) + select({
+        ":grpc_metrics_enabled": ["GOOGLE_CLOUD_CPP_STORAGE_WITH_OTEL_METRICS"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":google_cloud_cpp_storage",
+        ":google_cloud_cpp_storage_grpc_mocks",
+        ":storage_client_testing",
+        "//:mocks",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_grpc_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@curl",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+) for test in storage_client_grpc_unit_tests]
+
+[cc_binary(
+    name = benchmark.replace("/", "_").replace(".cc", ""),
+    srcs = [benchmark],
+    tags = ["benchmark"],
+    deps = [
+        ":google_cloud_cpp_storage",
+        "//:common",
+        "@com_google_benchmark//:benchmark",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+) for benchmark in storage_client_benchmarks]

@@ -1,0 +1,12 @@
+# Code owners are automatically requested for review when someone opens a pull
+# request containing files matching the given path. The syntax for file paths
+# is the same as .gitignore.
+
+# The owners for all files in the repo.
+* @googleapis/cloud-sdk-cpp-team
+
+# These libraries are also owned by the GCS clients team.
+/google/cloud/storage/ @googleapis/gcs-team @googleapis/cloud-sdk-cpp-team
+/google/cloud/storagecontrol/ @googleapis/gcs-team @googleapis/cloud-sdk-cpp-team
+/google/cloud/storageinsights/ @googleapis/gcs-team @googleapis/cloud-sdk-cpp-team
+/google/cloud/storagetransfer/ @googleapis/gcs-team @googleapis/cloud-sdk-cpp-team

@@ -1,0 +1,14 @@
+@googleapis//google/cloud/eventarc/publishing/v1:cloud_event.proto
+@googleapis//google/cloud/eventarc/publishing/v1:publisher.proto
+@googleapis//google/cloud/eventarc/v1:channel.proto
+@googleapis//google/cloud/eventarc/v1:channel_connection.proto
+@googleapis//google/cloud/eventarc/v1:discovery.proto
+@googleapis//google/cloud/eventarc/v1:enrollment.proto
+@googleapis//google/cloud/eventarc/v1:eventarc.proto
+@googleapis//google/cloud/eventarc/v1:google_api_source.proto
+@googleapis//google/cloud/eventarc/v1:google_channel_config.proto
+@googleapis//google/cloud/eventarc/v1:logging_config.proto
+@googleapis//google/cloud/eventarc/v1:message_bus.proto
+@googleapis//google/cloud/eventarc/v1:network_config.proto
+@googleapis//google/cloud/eventarc/v1:pipeline.proto
+@googleapis//google/cloud/eventarc/v1:trigger.proto

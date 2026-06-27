@@ -1,0 +1,417 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/bigtable/examples/bigtable_examples_common.h"
+#include "google/cloud/bigtable/resource_names.h"
+#include "google/cloud/bigtable/table.h"
+#include "google/cloud/bigtable/testing/cleanup_stale_resources.h"
+#include "google/cloud/bigtable/testing/random_names.h"
+#include "google/cloud/internal/getenv.h"
+#include "google/cloud/internal/random.h"
+#include "google/cloud/log.h"
+#include <sstream>
+
+namespace {
+
+void AsyncApply(google::cloud::bigtable::Table table,
+                std::vector<std::string> const& argv) {
+  //! [async-apply]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  using ::google::cloud::StatusOr;
+  [](cbt::Table table, std::string const& row_key) {
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch());
+
+    cbt::SingleRowMutation mutation(row_key);
+    mutation.emplace_back(
+        cbt::SetCell("fam", "column0", timestamp, "value for column0"));
+    mutation.emplace_back(
+        cbt::SetCell("fam", "column1", timestamp, "value for column1"));
+
+    future<google::cloud::Status> status_future =
+        table.AsyncApply(std::move(mutation));
+    auto status = status_future.get();
+    if (!status.ok()) throw std::runtime_error(status.message());
+    std::cout << "Successfully applied mutation\n";
+  }
+  //! [async-apply]
+  (std::move(table), argv.at(0));
+}
+
+void AsyncBulkApply(google::cloud::bigtable::Table table,
+                    std::vector<std::string> const&) {
+  //! [bulk async-bulk-apply]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  [](cbt::Table table) {
+    // Write several rows in a single operation, each row has some trivial data.
+    cbt::BulkMutation bulk;
+    for (int i = 0; i != 5000; ++i) {
+      // Note: This example uses sequential numeric IDs for simplicity, but
+      // this can result in poor performance in a production application.
+      // Since rows are stored in sorted order by key, sequential keys can
+      // result in poor distribution of operations across nodes.
+      //
+      // For more information about how to design a Bigtable schema for the
+      // best performance, see the documentation:
+      //
+      //     https://cloud.google.com/bigtable/docs/schema-design
+      char buf[32];
+      snprintf(buf, sizeof(buf), "key-%06d", i);
+      cbt::SingleRowMutation mutation(buf);
+      mutation.emplace_back(
+          cbt::SetCell("fam", "col0", "value0-" + std::to_string(i)));
+      mutation.emplace_back(
+          cbt::SetCell("fam", "col1", "value2-" + std::to_string(i)));
+      mutation.emplace_back(
+          cbt::SetCell("fam", "col2", "value3-" + std::to_string(i)));
+      mutation.emplace_back(
+          cbt::SetCell("fam", "col3", "value4-" + std::to_string(i)));
+      bulk.emplace_back(std::move(mutation));
+    }
+
+    table.AsyncBulkApply(std::move(bulk))
+        .then([](future<std::vector<cbt::FailedMutation>> ft) {
+          auto failures = ft.get();
+          if (failures.empty()) {
+            std::cout << "All the mutations were successful\n";
+            return;
+          }
+          // By default, the `table` object uses the
+          // `SafeIdempotentMutationPolicy` which does not retry if any of the
+          // mutations fails and are not idempotent. In this example we simply
+          // print such failures, if any, and ignore them otherwise.
+          std::cerr << "The following mutations failed and were not retried:\n";
+          for (auto const& f : failures) {
+            std::cerr << "index[" << f.original_index() << "]=" << f.status()
+                      << "\n";
+          }
+        })
+        .get();  // block to simplify the example
+  }
+  //! [bulk async-bulk-apply]
+  (std::move(table));
+}
+
+void AsyncReadRows(google::cloud::bigtable::Table table,
+                   std::vector<std::string> const&) {
+  //! [async read rows]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::make_ready_future;
+  using ::google::cloud::promise;
+  using ::google::cloud::Status;
+  [](cbt::Table table) {
+    // Create the range of rows to read.
+    auto range = cbt::RowRange::Range("key-000010", "key-000020");
+    // Filter the results, only include values from the "col0" column in the
+    // "fam" column family, and only get the latest value.
+    auto filter = cbt::Filter::Chain(
+        cbt::Filter::ColumnRangeClosed("fam", "col0", "col0"),
+        cbt::Filter::Latest(1));
+    promise<Status> stream_status_promise;
+    // Read and print the rows.
+    table.AsyncReadRows(
+        [](cbt::Row const& row) {
+          if (row.cells().size() != 1) {
+            std::cout << "Unexpected number of cells in " << row.row_key()
+                      << "\n";
+            return make_ready_future(false);
+          }
+          auto const& cell = row.cells().at(0);
+          std::cout << cell.row_key() << " = [" << cell.value() << "]\n";
+          return make_ready_future(true);
+        },
+        [&stream_status_promise](Status const& stream_status) {
+          stream_status_promise.set_value(stream_status);
+        },
+        range, filter);
+    Status stream_status = stream_status_promise.get_future().get();
+    if (!stream_status.ok()) throw std::runtime_error(stream_status.message());
+  }
+  //! [async read rows]
+  (std::move(table));
+}
+
+void AsyncReadRowsWithLimit(google::cloud::bigtable::Table table,
+                            std::vector<std::string> const& argv) {
+  //! [async read rows with limit]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::make_ready_future;
+  using ::google::cloud::promise;
+  using ::google::cloud::Status;
+  [](cbt::Table table, std::int64_t const& limit) {
+    // Create the range of rows to read.
+    auto range = cbt::RowRange::Range("key-000010", "key-000020");
+    // Filter the results, only include values from the "col0" column in the
+    // "fam" column family, and only get the latest value.
+    auto filter = cbt::Filter::Chain(
+        cbt::Filter::ColumnRangeClosed("fam", "col0", "col0"),
+        cbt::Filter::Latest(1));
+    promise<Status> stream_status_promise;
+    // Read and print the rows.
+    table.AsyncReadRows(
+        [](cbt::Row const& row) {
+          if (row.cells().size() != 1) {
+            std::cout << "Unexpected number of cells in " << row.row_key()
+                      << "\n";
+            return make_ready_future(false);
+          }
+          auto const& cell = row.cells().at(0);
+          std::cout << cell.row_key() << " = [" << cell.value() << "]\n";
+          return make_ready_future(true);
+        },
+        [&stream_status_promise](Status const& stream_status) {
+          stream_status_promise.set_value(stream_status);
+        },
+        range, limit, filter);
+    Status stream_status = stream_status_promise.get_future().get();
+    if (!stream_status.ok()) throw std::runtime_error(stream_status.message());
+  }
+  //! [async read rows with limit]
+  (std::move(table), std::stoll(argv.at(0)));
+}
+
+void AsyncReadRow(google::cloud::bigtable::Table table,
+                  std::vector<std::string> const& argv) {
+  //! [async read row]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  using ::google::cloud::StatusOr;
+  [](google::cloud::bigtable::Table table, std::string const& row_key) {
+    // Filter the results, only include the latest value on each cell.
+    cbt::Filter filter = cbt::Filter::Latest(1);
+    table.AsyncReadRow(row_key, std::move(filter))
+        .then(
+            [row_key](future<StatusOr<std::pair<bool, cbt::Row>>> row_future) {
+              // Read a row, this returns a tuple (bool, row)
+              auto tuple = row_future.get();
+              if (!tuple) throw std::move(tuple).status();
+              if (!tuple->first) {
+                std::cout << "Row " << row_key << " not found\n";
+                return;
+              }
+              std::cout << "key: " << tuple->second.row_key() << "\n";
+              for (auto const& cell : tuple->second.cells()) {
+                std::cout << "    " << cell.family_name() << ":"
+                          << cell.column_qualifier() << " = <";
+                if (cell.column_qualifier() == "counter") {
+                  // This example uses "counter" to store 64-bit numbers in
+                  // big-endian format, extract them as follows:
+                  std::cout
+                      << cell.decode_big_endian_integer<std::int64_t>().value();
+                } else {
+                  std::cout << cell.value();
+                }
+                std::cout << ">\n";
+              }
+            })
+        .get();  // block to simplify the example
+  }
+  //! [async read row]
+  (std::move(table), argv.at(0));
+}
+
+void AsyncCheckAndMutate(google::cloud::bigtable::Table table,
+                         std::vector<std::string> const& argv) {
+  //! [async check and mutate]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  using ::google::cloud::StatusOr;
+  [](cbt::Table table, std::string const& row_key) {
+    // Check if the latest value of the flip-flop column is "on".
+    cbt::Filter predicate = cbt::Filter::Chain(
+        cbt::Filter::ColumnRangeClosed("fam", "flip-flop", "flip-flop"),
+        cbt::Filter::Latest(1), cbt::Filter::ValueRegex("on"));
+    future<StatusOr<cbt::MutationBranch>> branch_future =
+        table.AsyncCheckAndMutateRow(row_key, std::move(predicate),
+                                     {cbt::SetCell("fam", "flip-flop", "off"),
+                                      cbt::SetCell("fam", "flop-flip", "on")},
+                                     {cbt::SetCell("fam", "flip-flop", "on"),
+                                      cbt::SetCell("fam", "flop-flip", "off")});
+
+    branch_future
+        .then([](future<StatusOr<cbt::MutationBranch>> f) {
+          auto response = f.get();
+          if (!response) throw std::move(response).status();
+          if (*response == cbt::MutationBranch::kPredicateMatched) {
+            std::cout << "The predicate was matched\n";
+          } else {
+            std::cout << "The predicate was not matched\n";
+          }
+        })
+        .get();  // block to simplify the example.
+  }
+  //! [async check and mutate]
+  (std::move(table), argv.at(0));
+}
+
+void AsyncSampleRows(google::cloud::bigtable::Table table,
+                     std::vector<std::string> const&) {
+  //! [async sample row keys]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  using ::google::cloud::StatusOr;
+  [](cbt::Table table) {
+    future<StatusOr<std::vector<cbt::RowKeySample>>> samples_future =
+        table.AsyncSampleRows();
+
+    samples_future
+        .then([](future<StatusOr<std::vector<cbt::RowKeySample>>> f) {
+          auto samples = f.get();
+          if (!samples) throw std::move(samples).status();
+          for (auto const& sample : *samples) {
+            std::cout << "key=" << sample.row_key << " - "
+                      << sample.offset_bytes << "\n";
+          }
+        })
+        .get();  // block to simplify the example.
+  }
+  //! [async sample row keys]
+  (std::move(table));
+}
+
+void AsyncReadModifyWrite(google::cloud::bigtable::Table table,
+                          std::vector<std::string> const& argv) {
+  //! [async read modify write]
+  namespace cbt = ::google::cloud::bigtable;
+  using ::google::cloud::future;
+  using ::google::cloud::StatusOr;
+  [](cbt::Table table, std::string const& row_key) {
+    future<StatusOr<cbt::Row>> row_future = table.AsyncReadModifyWriteRow(
+        row_key,
+        cbt::ReadModifyWriteRule::AppendValue("fam", "list", ";element"));
+
+    row_future
+        .then([](future<StatusOr<cbt::Row>> f) {
+          auto row = f.get();
+          // As the modify in this example is not idempotent, and this example
+          // does not attempt to retry if there is a failure, we simply print
+          // such failures, if any, and otherwise ignore them.
+          if (!row) {
+            std::cout << "Failed to append row: " << row.status().message()
+                      << "\n";
+            return;
+          }
+          std::cout << "Successfully appended to " << row->row_key() << "\n";
+        })
+        .get();  // block to simplify example.
+  }
+  //! [async read modify write]
+  (std::move(table), argv.at(0));
+}
+
+void RunAll(std::vector<std::string> const& argv) {
+  namespace examples = ::google::cloud::bigtable::examples;
+  namespace cbt = ::google::cloud::bigtable;
+  namespace cbta = ::google::cloud::bigtable_admin;
+
+  if (!argv.empty()) throw examples::Usage{"auto"};
+  examples::CheckEnvironmentVariablesAreSet({
+      "GOOGLE_CLOUD_PROJECT",
+      "GOOGLE_CLOUD_CPP_BIGTABLE_TEST_INSTANCE_ID",
+  });
+  auto const project_id =
+      google::cloud::internal::GetEnv("GOOGLE_CLOUD_PROJECT").value();
+  auto const instance_id = google::cloud::internal::GetEnv(
+                               "GOOGLE_CLOUD_CPP_BIGTABLE_TEST_INSTANCE_ID")
+                               .value();
+
+  auto conn = cbta::MakeBigtableTableAdminConnection();
+  // If a previous run of these samples crashes before cleaning up there may be
+  // old tables left over. As there are quotas on the total number of tables we
+  // remove stale tables after 48 hours.
+  cbt::testing::CleanupStaleTables(conn, project_id, instance_id);
+  auto admin = cbta::BigtableTableAdminClient(std::move(conn));
+
+  // Initialize a generator with some amount of entropy.
+  auto generator = google::cloud::internal::DefaultPRNG(std::random_device{}());
+  auto const table_id = cbt::testing::RandomTableId(generator);
+
+  // Create a table to run the tests on
+  std::cout << "\nCreating table to run the examples (" << table_id << ")"
+            << std::endl;
+  google::bigtable::admin::v2::Table t;
+  auto& families = *t.mutable_column_families();
+  families["fam"].mutable_gc_rule()->set_max_num_versions(10);
+  auto schema = admin.CreateTable(cbt::InstanceName(project_id, instance_id),
+                                  table_id, std::move(t));
+  if (!schema) throw std::move(schema).status();
+
+  using ::google::cloud::Options;
+  cbt::Table table(cbt::MakeDataConnection(),
+                   cbt::TableResource(project_id, instance_id, table_id),
+                   Options{}.set<cbt::IdempotentMutationPolicyOption>(
+                       cbt::AlwaysRetryMutationPolicy().clone()));
+
+  std::cout << "\nRunning the AsyncApply() example" << std::endl;
+  AsyncApply(table, {"row-0001"});
+
+  std::cout << "\nRunning the AsyncBulkApply() example" << std::endl;
+  AsyncBulkApply(table, {});
+
+  std::cout << "\nRunning the AsyncSampleRows() example" << std::endl;
+  AsyncSampleRows(table, {});
+
+  std::cout << "\nRunning the AsyncReadRows() example" << std::endl;
+  AsyncReadRows(table, {});
+
+  std::cout << "\nRunning the AsyncReadRowsWithLimit() example" << std::endl;
+  AsyncReadRowsWithLimit(table, {"5"});
+
+  std::cout << "\nRunning the AsyncReadRow() example [1]" << std::endl;
+  AsyncReadRow(table, {"row-0001"});
+
+  std::cout << "\nRunning the AsyncReadRow() example [2]" << std::endl;
+  AsyncReadRow(table, {"row-not-found-key"});
+
+  std::cout << "\nRunning the AsyncApply() example [2]" << std::endl;
+  AsyncApply(table, {"check-and-mutate-row-key"});
+
+  std::cout << "\nRunning the AsyncCheckAndMutate() example" << std::endl;
+  AsyncCheckAndMutate(table, {"check-and-mutate-row-key"});
+
+  std::cout << "\nRunning the AsyncApply() example [3]" << std::endl;
+  AsyncApply(table, {"read-modify-write-row-key"});
+
+  std::cout << "\nRunning the AsyncReadModifyWrite() example" << std::endl;
+  AsyncReadModifyWrite(table, {"read-modify-write-row-key"});
+
+  (void)admin.DeleteTable(table.table_name());
+}
+
+}  // anonymous namespace
+
+int main(int argc, char* argv[]) try {
+  using ::google::cloud::bigtable::examples::MakeCommandEntry;
+  google::cloud::bigtable::examples::Example example({
+      MakeCommandEntry("async-apply", {"<row-key>"}, AsyncApply),
+      MakeCommandEntry("async-bulk-apply", {}, AsyncBulkApply),
+      MakeCommandEntry("async-sample-rows", {}, AsyncSampleRows),
+      MakeCommandEntry("async-read-rows", {}, AsyncReadRows),
+      MakeCommandEntry("async-read-rows-with-limit", {"<limit>"},
+                       AsyncReadRowsWithLimit),
+      MakeCommandEntry("async-read-row", {"<row-key>"}, AsyncReadRow),
+      MakeCommandEntry("async-check-and-mutate", {"<row-key>"},
+                       AsyncCheckAndMutate),
+      MakeCommandEntry("async-read-modify-write", {"<row-key>"},
+                       AsyncReadModifyWrite),
+      {"auto", RunAll},
+  });
+  return example.Run(argc, argv);
+} catch (std::exception const& ex) {
+  std::cerr << ex.what() << "\n";
+  ::google::cloud::LogSink::Instance().Flush();
+  return 1;
+}

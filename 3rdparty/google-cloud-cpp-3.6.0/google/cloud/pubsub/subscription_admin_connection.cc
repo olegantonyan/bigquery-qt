@@ -1,0 +1,419 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/pubsub/subscription_admin_connection.h"
+#include "google/cloud/pubsub/internal/defaults.h"
+#include "google/cloud/pubsub/internal/subscriber_auth_decorator.h"
+#include "google/cloud/pubsub/internal/subscriber_logging_decorator.h"
+#include "google/cloud/pubsub/internal/subscriber_metadata_decorator.h"
+#include "google/cloud/pubsub/internal/subscriber_stub.h"
+#include "google/cloud/pubsub/internal/subscriber_stub_factory.h"
+#include "google/cloud/pubsub/options.h"
+#include "google/cloud/credentials.h"
+#include "google/cloud/internal/api_client_header.h"
+#include "google/cloud/internal/retry_loop.h"
+#include "google/cloud/log.h"
+#include <memory>
+
+namespace google {
+namespace cloud {
+namespace pubsub {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+namespace {
+
+using ::google::cloud::Idempotency;
+using ::google::cloud::internal::RetryLoop;
+
+std::unique_ptr<pubsub::RetryPolicy> retry_policy(Options const& options) {
+  return options.get<pubsub::RetryPolicyOption>()->clone();
+}
+
+std::unique_ptr<BackoffPolicy> backoff_policy(Options const& options) {
+  return options.get<pubsub::BackoffPolicyOption>()->clone();
+}
+
+class SubscriptionAdminConnectionImpl
+    : public pubsub::SubscriptionAdminConnection {
+ public:
+  explicit SubscriptionAdminConnectionImpl(
+      std::unique_ptr<google::cloud::BackgroundThreads> background,
+      std::shared_ptr<pubsub_internal::SubscriberStub> stub, Options opts)
+      : background_(std::move(background)),
+        stub_(std::move(stub)),
+        options_(std::move(opts)) {}
+
+  ~SubscriptionAdminConnectionImpl() override = default;
+
+  StatusOr<google::pubsub::v1::Subscription> CreateSubscription(
+      CreateSubscriptionParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::Subscription const& request) {
+          return stub_->CreateSubscription(context, options, request);
+        },
+        *current, p.subscription, __func__);
+  }
+
+  StatusOr<google::pubsub::v1::Subscription> GetSubscription(
+      GetSubscriptionParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::GetSubscriptionRequest request;
+    request.set_subscription(p.subscription.FullName());
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::GetSubscriptionRequest const& request) {
+          return stub_->GetSubscription(context, options, request);
+        },
+        *current, request, __func__);
+  }
+
+  StatusOr<google::pubsub::v1::Subscription> UpdateSubscription(
+      UpdateSubscriptionParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::UpdateSubscriptionRequest const& request) {
+          return stub_->UpdateSubscription(context, options, request);
+        },
+        *current, p.request, __func__);
+  }
+
+  pubsub::ListSubscriptionsRange ListSubscriptions(
+      ListSubscriptionsParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::ListSubscriptionsRequest request;
+    request.set_project(std::move(p.project_id));
+    // The lambda must be copyable to use in MakePaginationRange<>(). We need
+    // to wrap the policies in shared pointers.
+    auto retry =
+        std::shared_ptr<pubsub::RetryPolicy const>(retry_policy(*current));
+    auto backoff =
+        std::shared_ptr<pubsub::BackoffPolicy const>(backoff_policy(*current));
+    char const* function_name = __func__;
+    auto list_functor =
+        [stub = stub_, retry = std::move(retry), backoff = std::move(backoff),
+         function_name](
+            Options const& options,
+            google::pubsub::v1::ListSubscriptionsRequest const& request) {
+          return RetryLoop(
+              retry->clone(), backoff->clone(), Idempotency::kIdempotent,
+              [stub](grpc::ClientContext& c, Options const& o,
+                     google::pubsub::v1::ListSubscriptionsRequest const& r) {
+                return stub->ListSubscriptions(c, o, r);
+              },
+              options, request, function_name);
+        };
+
+    return internal::MakePaginationRange<pubsub::ListSubscriptionsRange>(
+        std::move(current), std::move(request), std::move(list_functor),
+        [](google::pubsub::v1::ListSubscriptionsResponse response) {
+          std::vector<google::pubsub::v1::Subscription> items;
+          items.reserve(response.subscriptions_size());
+          for (auto& item : *response.mutable_subscriptions()) {
+            items.push_back(std::move(item));
+          }
+          return items;
+        });
+  }
+
+  Status DeleteSubscription(DeleteSubscriptionParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::DeleteSubscriptionRequest request;
+    request.set_subscription(p.subscription.FullName());
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::DeleteSubscriptionRequest const& request) {
+          return stub_->DeleteSubscription(context, options, request);
+        },
+        *current, request, __func__);
+  }
+
+  Status ModifyPushConfig(ModifyPushConfigParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::ModifyPushConfigRequest const& request) {
+          return stub_->ModifyPushConfig(context, options, request);
+        },
+        *current, p.request, __func__);
+  }
+
+  StatusOr<google::pubsub::v1::Snapshot> CreateSnapshot(
+      CreateSnapshotParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    auto const idempotency = p.request.name().empty()
+                                 ? Idempotency::kNonIdempotent
+                                 : Idempotency::kIdempotent;
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current), idempotency,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::CreateSnapshotRequest const& request) {
+          return stub_->CreateSnapshot(context, options, request);
+        },
+        *current, p.request, __func__);
+  }
+
+  StatusOr<google::pubsub::v1::Snapshot> GetSnapshot(
+      GetSnapshotParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::GetSnapshotRequest request;
+    request.set_snapshot(p.snapshot.FullName());
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::GetSnapshotRequest const& request) {
+          return stub_->GetSnapshot(context, options, request);
+        },
+        *current, request, __func__);
+  }
+
+  pubsub::ListSnapshotsRange ListSnapshots(ListSnapshotsParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::ListSnapshotsRequest request;
+    request.set_project(std::move(p.project_id));
+    // The lambda must be copyable to use in MakePaginationRange<>(). We need
+    // to wrap the policies in shared pointers.
+    auto retry =
+        std::shared_ptr<pubsub::RetryPolicy const>(retry_policy(*current));
+    auto backoff =
+        std::shared_ptr<pubsub::BackoffPolicy const>(backoff_policy(*current));
+    char const* function_name = __func__;
+    auto list_functor =
+        [stub = stub_, retry = std::move(retry), backoff = std::move(backoff),
+         function_name](
+            Options const& options,
+            google::pubsub::v1::ListSnapshotsRequest const& request) {
+          return RetryLoop(
+              retry->clone(), backoff->clone(), Idempotency::kIdempotent,
+              [stub](grpc::ClientContext& c, Options const& o,
+                     google::pubsub::v1::ListSnapshotsRequest const& r) {
+                return stub->ListSnapshots(c, o, r);
+              },
+              options, request, function_name);
+        };
+
+    return internal::MakePaginationRange<pubsub::ListSnapshotsRange>(
+        std::move(current), std::move(request), std::move(list_functor),
+        [](google::pubsub::v1::ListSnapshotsResponse response) {
+          std::vector<google::pubsub::v1::Snapshot> items;
+          items.reserve(response.snapshots_size());
+          for (auto& item : *response.mutable_snapshots()) {
+            items.push_back(std::move(item));
+          }
+          return items;
+        });
+  }
+
+  StatusOr<google::pubsub::v1::Snapshot> UpdateSnapshot(
+      UpdateSnapshotParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::UpdateSnapshotRequest const& request) {
+          return stub_->UpdateSnapshot(context, options, request);
+        },
+        *current, p.request, __func__);
+  }
+
+  Status DeleteSnapshot(DeleteSnapshotParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    google::pubsub::v1::DeleteSnapshotRequest request;
+    request.set_snapshot(p.snapshot.FullName());
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::DeleteSnapshotRequest const& request) {
+          return stub_->DeleteSnapshot(context, options, request);
+        },
+        *current, request, __func__);
+  }
+
+  StatusOr<google::pubsub::v1::SeekResponse> Seek(SeekParams p) override {
+    auto current = google::cloud::internal::SaveCurrentOptions();
+    return RetryLoop(
+        retry_policy(*current), backoff_policy(*current),
+        Idempotency::kIdempotent,
+        [this](grpc::ClientContext& context, Options const& options,
+               google::pubsub::v1::SeekRequest const& request) {
+          return stub_->Seek(context, options, request);
+        },
+        *current, p.request, __func__);
+  }
+
+  Options options() const override { return options_; }
+
+ private:
+  std::unique_ptr<google::cloud::BackgroundThreads> background_;
+  std::shared_ptr<pubsub_internal::SubscriberStub> stub_;
+  Options options_;
+};
+
+// Decorates a SubscriptionAdminStub. This works for both mock and real stubs.
+std::shared_ptr<pubsub_internal::SubscriberStub> DecorateSubscriptionAdminStub(
+    Options const& opts,
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    std::shared_ptr<pubsub_internal::SubscriberStub> stub) {
+  if (auth->RequiresConfigureContext()) {
+    stub = std::make_shared<pubsub_internal::SubscriberAuth>(std::move(auth),
+                                                             std::move(stub));
+  }
+  stub = std::make_shared<pubsub_internal::SubscriberMetadata>(
+      std::move(stub), std::multimap<std::string, std::string>{},
+      internal::HandCraftedLibClientHeader());
+  auto const& tracing = opts.get<LoggingComponentsOption>();
+  if (internal::Contains(tracing, "rpc")) {
+    GCP_LOG(INFO) << "Enabled logging for gRPC calls";
+    stub = std::make_shared<pubsub_internal::SubscriberLogging>(
+        std::move(stub), opts.get<GrpcTracingOptionsOption>(), tracing);
+  }
+  return stub;
+}
+
+}  // namespace
+
+SubscriptionAdminConnection::~SubscriptionAdminConnection() = default;
+
+StatusOr<google::pubsub::v1::Subscription>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+SubscriptionAdminConnection::CreateSubscription(CreateSubscriptionParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::Subscription>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+SubscriptionAdminConnection::GetSubscription(GetSubscriptionParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::Subscription>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+SubscriptionAdminConnection::UpdateSubscription(UpdateSubscriptionParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+ListSubscriptionsRange SubscriptionAdminConnection::ListSubscriptions(
+    ListSubscriptionsParams) {  // NOLINT(performance-unnecessary-value-param)
+  return internal::MakeUnimplementedPaginationRange<ListSubscriptionsRange>();
+}
+
+Status SubscriptionAdminConnection::DeleteSubscription(
+    DeleteSubscriptionParams) {  // NOLINT(performance-unnecessary-value-param)
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+Status SubscriptionAdminConnection::ModifyPushConfig(ModifyPushConfigParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::Snapshot>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+SubscriptionAdminConnection::CreateSnapshot(CreateSnapshotParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::Snapshot> SubscriptionAdminConnection::GetSnapshot(
+    GetSnapshotParams) {  // NOLINT(performance-unnecessary-value-param)
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::Snapshot>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+SubscriptionAdminConnection::UpdateSnapshot(UpdateSnapshotParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+ListSnapshotsRange SubscriptionAdminConnection::ListSnapshots(
+    ListSnapshotsParams) {  // NOLINT(performance-unnecessary-value-param)
+  return internal::MakeUnimplementedPaginationRange<ListSnapshotsRange>();
+}
+
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+Status SubscriptionAdminConnection::DeleteSnapshot(DeleteSnapshotParams) {
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+StatusOr<google::pubsub::v1::SeekResponse> SubscriptionAdminConnection::Seek(
+    SeekParams) {  // NOLINT(performance-unnecessary-value-param)
+  return Status{StatusCode::kUnimplemented, "needs-override"};
+}
+
+std::shared_ptr<SubscriptionAdminConnection> MakeSubscriptionAdminConnection(
+    std::initializer_list<internal::NonConstructible>) {
+  return MakeSubscriptionAdminConnection();
+}
+
+std::shared_ptr<SubscriptionAdminConnection> MakeSubscriptionAdminConnection(
+    Options opts) {
+  internal::CheckExpectedOptions<CommonOptionList, GrpcOptionList,
+                                 UnifiedCredentialsOptionList,
+                                 PolicyOptionList>(opts, __func__);
+  opts = pubsub_internal::DefaultCommonOptions(std::move(opts));
+  auto background = internal::MakeBackgroundThreadsFactory(opts)();
+  auto auth = google::cloud::internal::CreateAuthenticationStrategy(
+      background->cq(), opts);
+  auto stub = pubsub_internal::CreateDefaultSubscriberStub(auth->CreateChannel(
+      opts.get<EndpointOption>(), internal::MakeChannelArguments(opts)));
+  stub = DecorateSubscriptionAdminStub(opts, std::move(auth), std::move(stub));
+  return std::make_shared<SubscriptionAdminConnectionImpl>(
+      std::move(background), std::move(stub), std::move(opts));
+}
+
+std::shared_ptr<SubscriptionAdminConnection> MakeSubscriptionAdminConnection(
+    pubsub::ConnectionOptions const& options,
+    std::unique_ptr<pubsub::RetryPolicy const> retry_policy,
+    std::unique_ptr<pubsub::BackoffPolicy const> backoff_policy) {
+  auto opts = internal::MakeOptions(options);
+  if (retry_policy) opts.set<RetryPolicyOption>(retry_policy->clone());
+  if (backoff_policy) opts.set<BackoffPolicyOption>(backoff_policy->clone());
+  return MakeSubscriptionAdminConnection(std::move(opts));
+}
+
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace pubsub
+
+namespace pubsub_internal {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+
+std::shared_ptr<pubsub::SubscriptionAdminConnection>
+MakeTestSubscriptionAdminConnection(Options const& opts,
+                                    std::shared_ptr<SubscriberStub> stub) {
+  auto background = internal::MakeBackgroundThreadsFactory(opts)();
+  auto auth = google::cloud::internal::CreateAuthenticationStrategy(
+      background->cq(), opts);
+  stub = pubsub::DecorateSubscriptionAdminStub(opts, std::move(auth),
+                                               std::move(stub));
+  return std::make_shared<pubsub::SubscriptionAdminConnectionImpl>(
+      std::move(background), std::move(stub), opts);
+}
+
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace pubsub_internal
+}  // namespace cloud
+}  // namespace google

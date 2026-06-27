@@ -1,0 +1,58 @@
+name: "External Account Integration"
+
+on:
+  workflow_call:
+    inputs:
+      checkout-ref:
+        required: true
+        description: "The ref we want to compile"
+        type: string
+  push:
+    branches:
+      - "ci-gha-*"
+  schedule:
+    - cron: '0 4 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  # A minimal build to validate external account (aka Workload/Workforce
+  # Identity Federation, aka WIF, aka BYOID).  As the name implies, external
+  # accounts support non-Google sources of identity, such as AWS, Azure, or
+  # GitHub. Most of our builds use Google Cloud Build (GCB), which is not
+  # usable in this case.
+  identity-federation-integration-test:
+    if: github.repository == 'googleapis/google-cloud-cpp'
+    name: external-account-integration-test
+    runs-on: ubuntu-24.04
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      with:
+        ref: ${{ inputs.checkout-ref || github.sha }}
+    # Use BYOID identity and run the integration test
+    - id: byoid-auth
+      if: '!github.event.pull_request.head.repo.fork'
+      name: 'Authenticate to GCP'
+      uses: 'google-github-actions/auth@v3'
+      with:
+        create_credentials_file: true
+        workload_identity_provider: 'projects/49427430084/locations/global/workloadIdentityPools/github-wif-pool/providers/github-wif-provider'
+        service_account: 'github-actions@cloud-cpp-identity-federation.iam.gserviceaccount.com'
+    - name: Run integration tests
+      if: '!github.event.pull_request.head.repo.fork'
+      run: |
+        bazelisk test \
+          --test_output=all \
+          --verbose_failures=true \
+          --keep_going \
+          --experimental_convenience_symlinks=ignore \
+          --remote_upload_local_results=false \
+          --test_env=GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
+          --test_env=GOOGLE_CLOUD_CPP_TEST_WIF_BUCKET="cloud-cpp-wif-test-bucket" \
+          //google/cloud:internal_external_account_integration_test

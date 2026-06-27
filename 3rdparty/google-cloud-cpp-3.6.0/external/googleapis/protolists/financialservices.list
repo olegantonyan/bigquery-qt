@@ -1,0 +1,10 @@
+@googleapis//google/cloud/financialservices/v1:backtest_result.proto
+@googleapis//google/cloud/financialservices/v1:bigquery_destination.proto
+@googleapis//google/cloud/financialservices/v1:dataset.proto
+@googleapis//google/cloud/financialservices/v1:engine_config.proto
+@googleapis//google/cloud/financialservices/v1:engine_version.proto
+@googleapis//google/cloud/financialservices/v1:instance.proto
+@googleapis//google/cloud/financialservices/v1:line_of_business.proto
+@googleapis//google/cloud/financialservices/v1:model.proto
+@googleapis//google/cloud/financialservices/v1:prediction_result.proto
+@googleapis//google/cloud/financialservices/v1:service.proto

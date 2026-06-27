@@ -1,0 +1,55 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/storage/object_rewriter.h"
+#include "google/cloud/storage/internal/storage_connection.h"
+#include "google/cloud/internal/throw_delegate.h"
+#include <memory>
+#include <utility>
+
+namespace google {
+namespace cloud {
+namespace storage {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+
+ObjectRewriter::ObjectRewriter(
+    std::shared_ptr<internal::StorageConnection> connection,
+    internal::RewriteObjectRequest request)
+    : connection_(std::move(connection)),
+      request_(std::move(request)),
+      progress_{0, 0, false},
+      options_(google::cloud::internal::CurrentOptions()) {}
+
+StatusOr<RewriteProgress> ObjectRewriter::Iterate() {
+  google::cloud::internal::OptionsSpan span(options_);
+  StatusOr<internal::RewriteObjectResponse> response =
+      connection_->RewriteObject(request_);
+  if (!response.ok()) {
+    progress_.done = true;
+    last_error_ = std::move(response).status();
+    return last_error_;
+  }
+  progress_ = RewriteProgress{response->total_bytes_rewritten,
+                              response->object_size, response->done};
+  if (response->done) {
+    result_ = std::move(response->resource);
+  }
+  request_.set_rewrite_token(std::move(response->rewrite_token));
+  return progress_;
+}
+
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace storage
+}  // namespace cloud
+}  // namespace google

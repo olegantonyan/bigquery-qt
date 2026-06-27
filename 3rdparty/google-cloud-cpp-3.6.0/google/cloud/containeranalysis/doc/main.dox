@@ -1,0 +1,53 @@
+/*!
+
+@mainpage Container Analysis API C++ Client Library
+
+An idiomatic C++ client library for the [Container Analysis API][cloud-service-docs],
+an implementation of the [Grafeas API](https://grafeas.io), which stores,
+and enables querying and retrieval of critical metadata about all of your
+software artifacts.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/containeranalysis/quickstart/` directory,
+which should give you a taste of the Container Analysis API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c containeranalysis_v1::ContainerAnalysisClient](@ref google::cloud::containeranalysis_v1::ContainerAnalysisClient)
+- [\c containeranalysis_v1::GrafeasClient](@ref google::cloud::containeranalysis_v1::GrafeasClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref containeranalysis-override-endpoint - describes how to override the default
+  endpoint.
+- @ref containeranalysis-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref containeranalysis-override-retry - describes how to change the default retry
+  policies.
+- @ref containeranalysis-env - describes environment variables that can configure the behavior of the library.
+- @ref containeranalysis-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/container-analysis
+
+*/

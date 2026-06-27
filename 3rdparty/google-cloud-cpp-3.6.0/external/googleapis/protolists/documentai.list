@@ -1,0 +1,10 @@
+@googleapis//google/cloud/documentai/v1:barcode.proto
+@googleapis//google/cloud/documentai/v1:document.proto
+@googleapis//google/cloud/documentai/v1:document_io.proto
+@googleapis//google/cloud/documentai/v1:document_processor_service.proto
+@googleapis//google/cloud/documentai/v1:document_schema.proto
+@googleapis//google/cloud/documentai/v1:evaluation.proto
+@googleapis//google/cloud/documentai/v1:geometry.proto
+@googleapis//google/cloud/documentai/v1:operation_metadata.proto
+@googleapis//google/cloud/documentai/v1:processor.proto
+@googleapis//google/cloud/documentai/v1:processor_type.proto

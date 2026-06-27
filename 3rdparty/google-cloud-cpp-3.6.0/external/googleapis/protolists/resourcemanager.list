@@ -1,0 +1,7 @@
+@googleapis//google/cloud/resourcemanager/v3:folders.proto
+@googleapis//google/cloud/resourcemanager/v3:organizations.proto
+@googleapis//google/cloud/resourcemanager/v3:projects.proto
+@googleapis//google/cloud/resourcemanager/v3:tag_bindings.proto
+@googleapis//google/cloud/resourcemanager/v3:tag_holds.proto
+@googleapis//google/cloud/resourcemanager/v3:tag_keys.proto
+@googleapis//google/cloud/resourcemanager/v3:tag_values.proto

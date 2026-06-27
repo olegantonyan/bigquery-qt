@@ -1,0 +1,109 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "google/cloud/storage/client.h"
+#include "google/cloud/storage/testing/object_integration_test.h"
+#include "google/cloud/storage/testing/storage_integration_test.h"
+#include "google/cloud/internal/getenv.h"
+#include "google/cloud/log.h"
+#include "google/cloud/status_or.h"
+#include "google/cloud/testing_util/expect_exception.h"
+#include "google/cloud/testing_util/status_matchers.h"
+#include <gmock/gmock.h>
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <string>
+
+namespace google {
+namespace cloud {
+namespace storage {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+namespace {
+
+using ObjectPlentyClientsSeriallyIntegrationTest =
+    ::google::cloud::storage::testing::ObjectIntegrationTest;
+
+TEST_F(ObjectPlentyClientsSeriallyIntegrationTest, PlentyClientsSerially) {
+  // The main purpose of this test is to search for file description leaks in
+  // the REST-based client. We do not need such tests with gRPC, they have their
+  // own tests.
+  if (UsingGrpc()) GTEST_SKIP();
+
+  // With the advent of Regional Access Boundaries, connecting to non-regional
+  // endpoints requires background calls to IAM. These background calls use
+  // additional file descriptors which causes this test to fail when using the
+  // default endpoint.
+  auto regional_bucket = google::cloud::internal::GetEnv(
+      "GOOGLE_CLOUD_CPP_STORAGE_TEST_DESTINATION");
+  if (!regional_bucket.has_value()) GTEST_SKIP();
+  bucket_name_ = *regional_bucket;
+  // The regional_bucket was created in the us-west2 region.
+  auto options = Options{}.set<RestEndpointOption>(
+      "https://storage.us-west2.rep.googleapis.com");
+
+  auto client = MakeIntegrationTestClient(options);
+  auto object_name = MakeRandomObjectName();
+
+  std::string expected = LoremIpsum();
+
+  StatusOr<ObjectMetadata> meta = client.InsertObject(
+      bucket_name_, object_name, expected, IfGenerationMatch(0));
+  ASSERT_STATUS_OK(meta);
+  ScheduleForDelete(*meta);
+
+  // Track the number of open files to ensure every client creates the same
+  // number of file descriptors and none are leaked.
+  //
+  // However, `GetNumOpenFiles()` is not implemented on all platforms, so
+  // omit the checking when it's not available.
+  auto num_fds_before_test = GetNumOpenFiles();
+  bool track_open_files = num_fds_before_test.ok();
+  if (!track_open_files) {
+    EXPECT_EQ(StatusCode::kUnimplemented, num_fds_before_test.status().code());
+  }
+  std::size_t delta = 0;
+  for (int i = 0; i != 100; ++i) {
+    auto read_client = MakeIntegrationTestClient(options);
+    auto stream = read_client.ReadObject(bucket_name_, object_name);
+    char c;
+    stream.read(&c, 1);
+    if (track_open_files) {
+      auto num_fds_during_test = GetNumOpenFiles();
+      ASSERT_STATUS_OK(num_fds_during_test);
+      if (delta == 0) {
+        delta = *num_fds_during_test - *num_fds_before_test;
+      }
+      EXPECT_GE(*num_fds_before_test + delta, *num_fds_during_test)
+          << "Expect each client to create the same number of file descriptors"
+          << ", num_fds_before_test=" << *num_fds_before_test
+          << ", num_fds_during_test=" << *num_fds_during_test
+          << ", delta=" << delta;
+    }
+  }
+  if (track_open_files) {
+    auto num_fds_after_test = GetNumOpenFiles();
+    ASSERT_STATUS_OK(num_fds_after_test);
+    EXPECT_GE(*num_fds_before_test, *num_fds_after_test)
+        << "Clients are leaking descriptors";
+  }
+}
+
+}  // anonymous namespace
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace storage
+}  // namespace cloud
+}  // namespace google

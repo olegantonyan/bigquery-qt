@@ -1,0 +1,93 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_TESTING_EMBEDDED_SERVER_TEST_FIXTURE_H
+#define GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_TESTING_EMBEDDED_SERVER_TEST_FIXTURE_H
+
+#include "google/cloud/bigtable/table.h"
+#include "google/bigtable/v2/bigtable.grpc.pb.h"
+#include <gtest/gtest.h>
+#include <string>
+#include <thread>
+
+namespace google {
+namespace cloud {
+namespace bigtable {
+namespace testing {
+
+using ReceivedMetadata = std::multimap<std::string, std::string>;
+
+inline void GetClientMetadata(grpc::ServerContext* context,
+                              ReceivedMetadata& client_metadata) {
+  for (auto const& kv : context->client_metadata()) {
+    auto ele = std::make_pair(std::string(kv.first.begin(), kv.first.end()),
+                              std::string(kv.second.begin(), kv.second.end()));
+    client_metadata.emplace(std::move(ele));
+  }
+}
+
+/**
+ * Implement the portions of the `google.bigtable.v2.Bigtable` interface
+ * necessary for the embedded server tests.
+ *
+ * This is not a Mock (use `google::bigtable::v2::MockBigtableStub` for that,
+ * nor is this a Fake implementation (use the Cloud Bigtable Emulator for that),
+ * this is an implementation of the interface that returns hardcoded values.
+ * It is suitable for the embedded server tests, but for nothing else.
+ */
+class BigtableImpl final : public google::bigtable::v2::Bigtable::Service {
+ public:
+  BigtableImpl() = default;
+  grpc::Status ReadRows(
+      grpc::ServerContext* context,
+      google::bigtable::v2::ReadRowsRequest const*,
+      grpc::ServerWriter<google::bigtable::v2::ReadRowsResponse>*) override {
+    GetClientMetadata(context, client_metadata_);
+    return grpc::Status::OK;
+  }
+  ReceivedMetadata const& client_metadata() const { return client_metadata_; }
+
+ private:
+  ReceivedMetadata client_metadata_;
+};
+
+/// Common fixture for integrating embedded server into tests.
+class EmbeddedServerTestFixture : public ::testing::Test {
+ protected:
+  void StartServer();
+  void SetUp() override;
+  void TearDown() override;
+
+  static char const kProjectId[];
+  static char const kInstanceId[];
+  static char const kTableId[];
+  static char const kInstanceName[];
+  static char const kTableName[];
+
+  std::string project_id_ = kProjectId;
+  std::string instance_id_ = kInstanceId;
+  std::shared_ptr<DataConnection> data_connection_;
+  std::shared_ptr<bigtable::Table> table_;
+  std::thread wait_thread_;
+  BigtableImpl bigtable_service_;
+  grpc::ServerBuilder builder_;
+  std::unique_ptr<grpc::Server> server_;
+};
+
+}  // namespace testing
+}  // namespace bigtable
+}  // namespace cloud
+}  // namespace google
+
+#endif  // GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_TESTING_EMBEDDED_SERVER_TEST_FIXTURE_H

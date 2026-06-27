@@ -1,0 +1,61 @@
+/*!
+
+@mainpage Network Security API C++ Client Library
+
+An idiomatic C++ client library for the
+[Network Security API][cloud-service-docs], a cloud first service that helps you
+secure egress web traffic (HTTP/S).
+
+While this library is **GA**, please note that the Google Cloud C++ client
+libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/networksecurity/quickstart/` directory,
+which should give you a taste of the Network Security API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c networksecurity_v1::AddressGroupServiceClient](@ref google::cloud::networksecurity_v1::AddressGroupServiceClient)
+- [\c networksecurity_v1::DnsThreatDetectorServiceClient](@ref google::cloud::networksecurity_v1::DnsThreatDetectorServiceClient)
+- [\c networksecurity_v1::FirewallActivationClient](@ref google::cloud::networksecurity_v1::FirewallActivationClient)
+- [\c networksecurity_v1::InterceptClient](@ref google::cloud::networksecurity_v1::InterceptClient)
+- [\c networksecurity_v1::MirroringClient](@ref google::cloud::networksecurity_v1::MirroringClient)
+- [\c networksecurity_v1::NetworkSecurityClient](@ref google::cloud::networksecurity_v1::NetworkSecurityClient)
+- [\c networksecurity_v1::OrganizationAddressGroupServiceClient](@ref google::cloud::networksecurity_v1::OrganizationAddressGroupServiceClient)
+- [\c networksecurity_v1::OrganizationSecurityProfileGroupServiceClient](@ref google::cloud::networksecurity_v1::OrganizationSecurityProfileGroupServiceClient)
+- [\c networksecurity_v1::SecurityProfileGroupServiceClient](@ref google::cloud::networksecurity_v1::SecurityProfileGroupServiceClient)
+- [\c networksecurity_v1::SSERealmServiceClient](@ref google::cloud::networksecurity_v1::SSERealmServiceClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref networksecurity-override-endpoint - describes how to override the default
+  endpoint.
+- @ref networksecurity-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref networksecurity-override-retry - describes how to change the default retry
+  policies.
+- @ref networksecurity-env - describes environment variables that can configure the
+  behavior of the library.
+
+[cloud-service-docs]: https://cloud.google.com/secure-web-proxy
+
+*/

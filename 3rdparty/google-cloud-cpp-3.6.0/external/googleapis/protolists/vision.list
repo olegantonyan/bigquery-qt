@@ -1,0 +1,6 @@
+@googleapis//google/cloud/vision/v1:geometry.proto
+@googleapis//google/cloud/vision/v1:image_annotator.proto
+@googleapis//google/cloud/vision/v1:product_search.proto
+@googleapis//google/cloud/vision/v1:product_search_service.proto
+@googleapis//google/cloud/vision/v1:text_annotation.proto
+@googleapis//google/cloud/vision/v1:web_detection.proto

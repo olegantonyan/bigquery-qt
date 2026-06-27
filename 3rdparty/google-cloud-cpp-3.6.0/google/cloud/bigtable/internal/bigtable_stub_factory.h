@@ -1,0 +1,89 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_INTERNAL_BIGTABLE_STUB_FACTORY_H
+#define GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_INTERNAL_BIGTABLE_STUB_FACTORY_H
+
+#include "google/cloud/bigtable/instance_resource.h"
+#include "google/cloud/bigtable/internal/bigtable_stub.h"
+#include "google/cloud/bigtable/internal/connection_refresh_state.h"
+#include "google/cloud/bigtable/internal/stub_manager.h"
+#include "google/cloud/completion_queue.h"
+#include "google/cloud/internal/unified_grpc_credentials.h"
+#include "google/cloud/options.h"
+#include "google/cloud/version.h"
+#include <functional>
+#include <memory>
+
+namespace google {
+namespace cloud {
+namespace bigtable_internal {
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+
+using BaseBigtableStubFactory = std::function<std::shared_ptr<BigtableStub>(
+    std::shared_ptr<grpc::Channel>)>;
+
+/// Creates a static pool of stubs that use a round-robin strategy to select.
+std::shared_ptr<BigtableStub> CreateBigtableStubRoundRobin(
+    Options const& options, std::function<std::shared_ptr<BigtableStub>(int)>
+                                refreshing_channel_stub_factory);
+
+/// Creates a dynamic pool of stubs that selects the least used from a random
+/// pair of stubs.
+std::shared_ptr<BigtableStub> CreateBigtableStubRandomTwoLeastUsed(
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    std::shared_ptr<internal::CompletionQueueImpl> cq_impl,
+    std::string_view instance_name, StubManager::Priming priming,
+    Options const& options, BaseBigtableStubFactory stub_factory,
+    std::shared_ptr<ConnectionRefreshState> refresh_state);
+
+/// Used in testing to create decorated mocks.
+std::shared_ptr<BigtableStub> CreateDecoratedStubs(
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    CompletionQueue const& cq, Options const& options,
+    BaseBigtableStubFactory const& stub_factory);
+
+/// Used in testing to create decorated mocks.
+std::shared_ptr<BigtableStub> CreateDecoratedStubs(
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    CompletionQueue const& cq, std::string_view instance_name,
+    StubManager::Priming priming, Options const& options,
+    BaseBigtableStubFactory const& stub_factory);
+
+/// Default function used by `DataConnectionImpl`.
+/// No instance affinity, uses legacy grpc::GetState to refresh using the
+/// round-robin channel selection strategy.
+std::shared_ptr<BigtableStub> CreateBigtableStub(
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    CompletionQueue const& cq, Options const& options);
+
+/// Creates a stub with instance affinity using PingAndWarm priming using the
+/// random two least used channel selection strategy.
+std::shared_ptr<BigtableStub> CreateBigtableStub(
+    std::shared_ptr<internal::GrpcAuthenticationStrategy> auth,
+    CompletionQueue const& cq, std::string_view instance_name,
+    StubManager::Priming priming, Options const& options);
+
+/// Creates a map of instance to stub pairs.
+absl::flat_hash_map<std::string, std::shared_ptr<BigtableStub>>
+CreateBigtableAffinityStubs(
+    std::vector<bigtable::InstanceResource> const& instances,
+    StubManager::StubCreationFn const& stub_creation_fn);
+
+GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
+}  // namespace bigtable_internal
+}  // namespace cloud
+}  // namespace google
+
+#endif  // GOOGLE_CLOUD_CPP_GOOGLE_CLOUD_BIGTABLE_INTERNAL_BIGTABLE_STUB_FACTORY_H

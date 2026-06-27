@@ -1,0 +1,380 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(":capture_build_info.bzl", "capture_build_info")
+load(":google_cloud_cpp_common.bzl", "google_cloud_cpp_common_hdrs", "google_cloud_cpp_common_srcs")
+load(":google_cloud_cpp_common_benchmarks.bzl", "google_cloud_cpp_common_benchmarks")
+load(":google_cloud_cpp_common_unit_tests.bzl", "google_cloud_cpp_common_unit_tests")
+load(":google_cloud_cpp_grpc_utils.bzl", "google_cloud_cpp_grpc_utils_hdrs", "google_cloud_cpp_grpc_utils_srcs")
+load(":google_cloud_cpp_grpc_utils_benchmarks.bzl", "google_cloud_cpp_grpc_utils_benchmarks")
+load(":google_cloud_cpp_grpc_utils_integration_tests.bzl", "google_cloud_cpp_grpc_utils_integration_tests")
+load(":google_cloud_cpp_grpc_utils_unit_tests.bzl", "google_cloud_cpp_grpc_utils_unit_tests")
+load(":google_cloud_cpp_mocks.bzl", "google_cloud_cpp_mocks_hdrs")
+load(":google_cloud_cpp_rest_internal.bzl", "google_cloud_cpp_rest_internal_hdrs", "google_cloud_cpp_rest_internal_srcs")
+load(":google_cloud_cpp_rest_internal_benchmarks.bzl", "google_cloud_cpp_rest_internal_benchmarks")
+load(":google_cloud_cpp_rest_internal_emulator_integration_tests.bzl", "google_cloud_cpp_rest_internal_emulator_integration_tests")
+load(":google_cloud_cpp_rest_internal_production_integration_tests.bzl", "google_cloud_cpp_rest_internal_production_integration_tests")
+load(":google_cloud_cpp_rest_internal_unit_tests.bzl", "google_cloud_cpp_rest_internal_unit_tests")
+load(":google_cloud_cpp_rest_protobuf_internal.bzl", "google_cloud_cpp_rest_protobuf_internal_hdrs", "google_cloud_cpp_rest_protobuf_internal_srcs")
+load(":google_cloud_cpp_rest_protobuf_internal_unit_tests.bzl", "google_cloud_cpp_rest_protobuf_internal_unit_tests")
+load(":google_cloud_cpp_universe_domain.bzl", "google_cloud_cpp_universe_domain_hdrs", "google_cloud_cpp_universe_domain_srcs")
+load(":google_cloud_cpp_universe_domain_unit_tests.bzl", "google_cloud_cpp_universe_domain_unit_tests")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # Apache 2.0
+
+capture_build_info(
+    name = "generate_build_info",
+    output_file = "internal/build_info.cc",
+    template = "internal/build_info.cc.in",
+    toolchains = [
+        "@bazel_tools//tools/cpp:current_cc_toolchain",
+    ],
+)
+
+filegroup(
+    name = "common_hdrs",
+    srcs = [h for h in google_cloud_cpp_common_hdrs if not h.startswith("internal/")],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_common_private",
+    srcs = google_cloud_cpp_common_srcs + ["internal/build_info.cc"],
+    hdrs = google_cloud_cpp_common_hdrs,
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    local_defines = select({
+        "@platforms//os:windows": [
+            "WIN32_LEAN_AND_MEAN",
+            "_WIN32_WINNT=0x0A00",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:optional",
+        "@abseil-cpp//absl/types:span",
+        "@abseil-cpp//absl/types:variant",
+        "@opentelemetry-cpp//api",
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "@boringssl//:crypto",
+        ],
+    }),
+)
+
+cc_library(
+    name = "google_cloud_cpp_common",
+    tags = ["manual"],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [":google_cloud_cpp_common_private"],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_mocks",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_common_unit_tests]
+
+[cc_test(
+    name = benchmark.replace("/", "_").replace(".cc", ""),
+    srcs = [benchmark],
+    tags = ["benchmark"],
+    deps = [
+        ":google_cloud_cpp_common",
+        "@com_google_benchmark//:benchmark",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+) for benchmark in google_cloud_cpp_common_benchmarks]
+
+filegroup(
+    name = "grpc_utils_hdrs",
+    srcs = [h for h in google_cloud_cpp_grpc_utils_hdrs if ("/internal/" not in h and "grpc_utils/" not in h)],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_grpc_utils_private",
+    srcs = google_cloud_cpp_grpc_utils_srcs,
+    # TODO(#3932) - remove the filtering comprehension.
+    hdrs = [
+        header
+        for header in google_cloud_cpp_grpc_utils_hdrs
+        if not "grpc_utils/" in header
+    ],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_common",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/time",
+        "@googleapis//google/cloud/location:location_cc_grpc",
+        "@googleapis//google/iam/credentials/v1:credentials_cc_grpc",
+        "@googleapis//google/iam/v1:iam_cc_grpc",
+        "@googleapis//google/longrunning:longrunning_cc_grpc",
+        "@googleapis//google/rpc:error_details_cc_proto",
+        "@googleapis//google/rpc:status_cc_proto",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_library(
+    name = "google_cloud_cpp_grpc_utils",
+    tags = ["manual"],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [":google_cloud_cpp_grpc_utils_private"],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_grpc_utils",
+        ":google_cloud_cpp_mocks",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_grpc_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@googleapis//google/bigtable/admin/v2:admin_cc_grpc",
+        "@googleapis//google/bigtable/v2:bigtable_cc_grpc",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_grpc_utils_unit_tests]
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    tags = [
+        "integration-test",
+    ],
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_grpc_utils",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_grpc_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@googleapis//google/bigtable/admin/v2:admin_cc_grpc",
+        "@googleapis//google/bigtable/v2:bigtable_cc_grpc",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_grpc_utils_integration_tests]
+
+[cc_binary(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_grpc_utils",
+        "@com_google_benchmark//:benchmark",
+        "@com_google_benchmark//:benchmark_main",
+        "@googleapis//google/bigtable/admin/v2:admin_cc_grpc",
+        "@googleapis//google/bigtable/v2:bigtable_cc_grpc",
+    ],
+) for test in google_cloud_cpp_grpc_utils_benchmarks]
+
+filegroup(
+    name = "mocks",
+    srcs = [h for h in google_cloud_cpp_mocks_hdrs if not h.startswith("internal/")],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "google_cloud_cpp_mocks",
+    testonly = True,
+    srcs = [],
+    hdrs = google_cloud_cpp_mocks_hdrs,
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [
+        ":google_cloud_cpp_common",
+    ],
+)
+
+cc_library(
+    name = "google_cloud_cpp_rest_internal",
+    srcs = google_cloud_cpp_rest_internal_srcs,
+    hdrs = google_cloud_cpp_rest_internal_hdrs,
+    # TODO(#16079): Remove macro definition when GA.
+    cxxopts = ["-DGOOGLE_CLOUD_CPP_TESTING_ENABLE_RAB"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+            "-DEFAULTLIB:crypt32.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    local_defines = select({
+        "@platforms//os:windows": [
+            "WIN32_LEAN_AND_MEAN",
+            "_WIN32_WINNT=0x0A00",
+        ],
+        "//conditions:default": [
+            "GOOGLE_CLOUD_CPP_HAVE_OPENSSL",
+        ],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":google_cloud_cpp_common",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/types:span",
+        "@curl",
+        "@nlohmann_json//:json",
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "@boringssl//:crypto",
+            "@boringssl//:ssl",
+        ],
+    }),
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    # TODO(#16079): Remove macro definition when GA.
+    cxxopts = ["-DGOOGLE_CLOUD_CPP_TESTING_ENABLE_RAB"],
+    deps = [
+        ":google_cloud_cpp_rest_internal",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_rest_private",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_rest_internal_unit_tests]
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    tags = [
+        "integration-test",
+    ],
+    deps = [
+        ":google_cloud_cpp_rest_internal",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_rest_internal_emulator_integration_tests]
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    tags = [
+        "integration-test",
+    ],
+    deps = [
+        ":google_cloud_cpp_rest_internal",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_rest_internal_production_integration_tests]
+
+[cc_binary(
+    name = benchmark.replace("/", "_").replace(".cc", ""),
+    srcs = [benchmark],
+    tags = ["benchmark"],
+    deps = [
+        ":google_cloud_cpp_rest_internal",
+        "@com_google_benchmark//:benchmark",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+) for benchmark in google_cloud_cpp_rest_internal_benchmarks]
+
+cc_library(
+    name = "google_cloud_cpp_rest_protobuf_internal",
+    srcs = google_cloud_cpp_rest_protobuf_internal_srcs,
+    hdrs = google_cloud_cpp_rest_protobuf_internal_hdrs,
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_grpc_utils",
+        ":google_cloud_cpp_rest_internal",
+    ],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_rest_protobuf_internal",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_grpc_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_rest_private",
+        "@googleapis//google/bigtable/admin/v2:admin_cc_grpc",
+        "@googleapis//google/iam/admin/v1:admin_cc_grpc",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_rest_protobuf_internal_unit_tests]
+
+cc_library(
+    name = "google_cloud_cpp_universe_domain",
+    srcs = google_cloud_cpp_universe_domain_srcs,
+    hdrs = google_cloud_cpp_universe_domain_hdrs,
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":google_cloud_cpp_common",
+        ":google_cloud_cpp_rest_internal",
+    ],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_universe_domain",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+        "//google/cloud/testing_util:google_cloud_cpp_testing_rest_private",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_universe_domain_unit_tests]
+
+[cc_test(
+    name = sample.replace("/", "_").replace(".cc", ""),
+    srcs = [sample],
+    tags = ["integration-test"],
+    deps = [
+        "//google/cloud/testing_util:google_cloud_cpp_testing_private",
+    ],
+) for sample in glob(["samples/*.cc"])]

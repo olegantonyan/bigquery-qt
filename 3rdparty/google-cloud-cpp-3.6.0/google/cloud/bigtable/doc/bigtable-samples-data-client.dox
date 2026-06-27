@@ -1,0 +1,48 @@
+/*!
+@page bigtable-samples-data-client Advanced Reading and Writing Samples
+
+This example is for advanced reading and writing operations on bigtable data client, that illustrates how to:
+
+- Use ReadModifyWrite to append a string to a value.
+- Use ReadModifyWrite to increment a value.
+- Use the features to simplify reading big-endian values from Cloud Bigtable.
+- Use CheckAndMutate to modify a value only if it exists.
+
+## Run the example
+
+This example uses the [Cloud Bigtable C++ Client Library][reference-link]
+to communicate with Cloud Bigtable.
+
+To run the example program, follow the [instructions][github-examples] for the
+example on GitHub.
+
+[reference-link]: https://googleapis.github.io/google-cloud-cpp
+[github-examples]: https://github.com/googleapis/google-cloud-cpp/tree/main/google/cloud/bigtable/examples/
+
+### Include the Necessary Headers
+
+The example uses the following headers:
+
+@snippet data_snippets.cc bigtable includes
+
+### Connect to the Cloud Bigtable data client endpoint.
+
+@snippet data_snippets.cc connect data
+
+### Use ReadModifyWrite to increment a value and append a string to a value.
+
+@snippet data_snippets.cc read modify write
+
+### Use the features to simplify reading big-endian values from Cloud Bigtable.
+
+@snippet read_snippets.cc read row
+
+### Use CheckAndMutate to modify a cell if it has a value.
+
+@snippet data_snippets.cc check and mutate
+
+### Use CheckAndMutate to modify a cell if another cell exists.
+
+@snippet data_snippets.cc check and mutate not present
+
+*/

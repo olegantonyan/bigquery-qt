@@ -1,0 +1,6 @@
+@googleapis//google/cloud/recommender/logging/v1:action_log.proto
+@googleapis//google/cloud/recommender/v1:insight.proto
+@googleapis//google/cloud/recommender/v1:insight_type_config.proto
+@googleapis//google/cloud/recommender/v1:recommendation.proto
+@googleapis//google/cloud/recommender/v1:recommender_config.proto
+@googleapis//google/cloud/recommender/v1:recommender_service.proto

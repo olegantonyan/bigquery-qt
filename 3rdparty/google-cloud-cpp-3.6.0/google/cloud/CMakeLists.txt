@@ -1,0 +1,79 @@
+# ~~~
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ~~~
+
+if (GOOGLE_CLOUD_CPP_USE_INSTALLED_COMMON)
+    return()
+endif ()
+
+set(DOXYGEN_PROJECT_NAME "Google Cloud C++ Client")
+set(DOXYGEN_PROJECT_BRIEF "C++ Client Library for Google Cloud Platform")
+set(DOXYGEN_PROJECT_NUMBER "${PROJECT_VERSION}")
+set(DOXYGEN_EXAMPLE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/samples")
+set(DOXYGEN_EXCLUDE_SYMBOLS "internal" "testing_util" "examples")
+
+# We cannot recurse from the google/cloud directory, because it will traverse
+# all of the libraries. So we turn off recursion and manually provide the
+# subdirectories to be traversed.
+include(GoogleCloudCppDoxygen)
+google_cloud_cpp_doxygen_targets_impl(
+    "cloud"
+    INPUTS
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mocks"
+    "${CMAKE_CURRENT_SOURCE_DIR}/doc"
+    DEPENDS
+    google-cloud-cpp::rpc_status_protos)
+
+include(GoogleCloudCppCommon)
+include(CreateBazelConfig)
+include(CMakePackageConfigHelpers)
+
+# Define a CMake configuration option to set the build metadata. By default this
+# is not initialized.
+set(GOOGLE_CLOUD_CPP_BUILD_METADATA
+    ""
+    CACHE STRING "Append build metadata to the library version number")
+# This option is rarely needed. Mark it as "advanced" to remove it from the
+# default CMake UIs.
+mark_as_advanced(GOOGLE_CLOUD_CPP_BUILD_METADATA)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/google_cloud_cpp_common.cmake")
+
+add_subdirectory(testing_util)
+
+if (GOOGLE_CLOUD_CPP_ENABLE_GRPC)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/google_cloud_cpp_grpc_utils.cmake")
+endif ()
+
+if (GOOGLE_CLOUD_CPP_ENABLE_REST)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/google_cloud_cpp_rest_internal.cmake")
+endif ()
+
+if (GOOGLE_CLOUD_CPP_ENABLE_REST AND GOOGLE_CLOUD_CPP_ENABLE_GRPC)
+    include(
+        "${CMAKE_CURRENT_SOURCE_DIR}/google_cloud_cpp_rest_protobuf_internal.cmake"
+    )
+endif ()
+
+# We need the universe_domain library for the full suite of samples if it isn't
+# already enabled.
+if (universe_domain IN_LIST GOOGLE_CLOUD_CPP_ENABLE
+    OR BUILD_TESTING
+    AND GOOGLE_CLOUD_CPP_ENABLE_CXX_EXCEPTIONS)
+    include(
+        "${CMAKE_CURRENT_SOURCE_DIR}/google_cloud_cpp_universe_domain.cmake")
+    add_subdirectory(universe_domain)
+endif ()

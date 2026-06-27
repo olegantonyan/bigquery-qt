@@ -1,0 +1,3 @@
+@googleapis//google/devtools/cloudtrace/v1:trace.proto
+@googleapis//google/devtools/cloudtrace/v2:trace.proto
+@googleapis//google/devtools/cloudtrace/v2:tracing.proto

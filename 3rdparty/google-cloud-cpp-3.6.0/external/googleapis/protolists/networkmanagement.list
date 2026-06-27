@@ -1,0 +1,5 @@
+@googleapis//google/cloud/networkmanagement/v1:connectivity_test.proto
+@googleapis//google/cloud/networkmanagement/v1:reachability.proto
+@googleapis//google/cloud/networkmanagement/v1:trace.proto
+@googleapis//google/cloud/networkmanagement/v1:vpc_flow_logs.proto
+@googleapis//google/cloud/networkmanagement/v1:vpc_flow_logs_config.proto

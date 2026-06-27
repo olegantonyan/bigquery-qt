@@ -1,0 +1,45 @@
+/*!
+
+@mainpage Serverless VPC Access API C++ Client Library
+
+An idiomatic C++ client library for the [Serverless VPC Access API][cloud-service-docs], a service
+to API for managing VPC access connectors.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/vpcaccess/quickstart/` directory,
+which should give you a taste of the Serverless VPC Access API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+The main class in this library is
+[`vpcaccess_v1::VpcAccessServiceClient`](@ref google::cloud::vpcaccess_v1::VpcAccessServiceClient). All RPCs are exposed
+as member functions of this class. Other classes provide helpers, configuration
+parameters, and infrastructure to mock
+[`vpcaccess_v1::VpcAccessServiceClient`](@ref google::cloud::vpcaccess_v1::VpcAccessServiceClient) when testing your
+application.
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref vpcaccess-override-endpoint - describes how to override the default
+  endpoint.
+- @ref vpcaccess-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref vpcaccess-override-retry - describes how to change the default retry
+  policies.
+- @ref vpcaccess-env - describes environment variables that can configure the behavior of the library.
+- @ref vpcaccess-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service-docs]: https://cloud.google.com/vpc/docs/serverless-vpc-access
+
+*/

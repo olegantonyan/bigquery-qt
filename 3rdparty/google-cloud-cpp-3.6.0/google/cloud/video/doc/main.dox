@@ -1,0 +1,61 @@
+/*!
+
+@mainpage Video Services C++ Client Library
+
+An idiomatic C++ client library for video services, including:
+
+- [Live Stream API][livestream-service-docs], a service to transcode live, linear video streams into a variety of formats.
+- [Transcoder API][transcoder-service-docs], a service to convert video files
+  into formats suitable for consumer distribution.
+- [Video Stitcher API][stitcher-service-docs], a service to generate dynamic
+  content for delivery to client devices. Call the Video Stitcher API from your
+  servers to dynamically insert ads into video-on-demand and live streams for
+  your users.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/video/quickstart/` directory,
+which should give you a taste of the video services C++ client library.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+This library offers multiple `*Client` classes, which are listed below. Each one
+of these classes exposes all the RPCs for a service as member functions of the
+class. This library groups multiple services because they are part of the same
+product or are often used together. A typical example may be the administrative
+and data plane operations for a single product.
+
+The library also has other classes that provide helpers, configuration
+parameters, and infrastructure to mock the `*Client` classes when testing your
+application.
+
+- [\c video_livestream_v1::LivestreamServiceClient](@ref google::cloud::video_livestream_v1::LivestreamServiceClient)
+- [\c video_stitcher_v1::VideoStitcherServiceClient](@ref google::cloud::video_stitcher_v1::VideoStitcherServiceClient)
+- [\c video_transcoder_v1::TranscoderServiceClient](@ref google::cloud::video_transcoder_v1::TranscoderServiceClient)
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref video-override-endpoint - describes how to override the default
+  endpoint.
+- @ref video-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref video-override-retry - describes how to change the default retry
+  policies.
+- @ref video-env - describes environment variables that can configure the behavior of the library.
+- @ref video-override-universe-domain - describes how to override the default universe domain.
+
+[livestream-service-docs]: https://cloud.google.com/livestream
+[transcoder-service-docs]: https://cloud.google.com/transcoder
+[stitcher-service-docs]: https://cloud.google.com/video-stitcher
+
+*/

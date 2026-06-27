@@ -1,0 +1,132 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(":google_cloud_cpp_testing.bzl", "google_cloud_cpp_testing_hdrs", "google_cloud_cpp_testing_srcs")
+load(":google_cloud_cpp_testing_grpc.bzl", "google_cloud_cpp_testing_grpc_hdrs", "google_cloud_cpp_testing_grpc_srcs")
+load(":google_cloud_cpp_testing_grpc_unit_tests.bzl", "google_cloud_cpp_testing_grpc_unit_tests")
+load(":google_cloud_cpp_testing_rest.bzl", "google_cloud_cpp_testing_rest_hdrs", "google_cloud_cpp_testing_rest_srcs")
+load(":google_cloud_cpp_testing_unit_tests.bzl", "google_cloud_cpp_testing_unit_tests")
+
+# The targets in this package are intended for testing our own libraries, and
+# are not intended for public usage.
+package(default_visibility = ["//:__subpackages__"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "google_cloud_cpp_testing_private",
+    testonly = True,
+    srcs = google_cloud_cpp_testing_srcs,
+    hdrs = google_cloud_cpp_testing_hdrs,
+    defines = select({
+        "@platforms//os:linux": [
+            "GOOGLE_CLOUD_CPP_HAVE_GETRUSAGE",
+            "GOOGLE_CLOUD_CPP_HAVE_RUSAGE_THREAD",
+        ],
+        "@platforms//os:macos": [
+            "GOOGLE_CLOUD_CPP_HAVE_GETRUSAGE",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//:common",
+        "@abseil-cpp//absl/debugging:failure_signal_handler",
+        "@abseil-cpp//absl/debugging:symbolize",
+        "@googletest//:gtest_main",
+        "@opentelemetry-cpp//exporters/memory:in_memory_span_exporter",
+        "@opentelemetry-cpp//sdk/src/trace",
+    ],
+)
+
+cc_library(
+    name = "google_cloud_cpp_testing",
+    testonly = True,
+    tags = ["manual"],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [":google_cloud_cpp_testing_private"],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_testing",
+        "//:common",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_testing_unit_tests]
+
+cc_library(
+    name = "google_cloud_cpp_testing_grpc_private",
+    testonly = True,
+    srcs = google_cloud_cpp_testing_grpc_srcs,
+    hdrs = google_cloud_cpp_testing_grpc_hdrs,
+    deps = [
+        "//:common",
+        "//:grpc_utils",
+        "@grpc//:grpc++",
+        #        "@googleapis//:googleapis_system_includes",
+        "@googleapis//google/api:annotations_cc_proto",
+        "@googleapis//google/api:routing_cc_proto",
+        "@googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "google_cloud_cpp_testing_grpc",
+    testonly = True,
+    tags = ["manual"],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [":google_cloud_cpp_testing_grpc_private"],
+)
+
+[cc_test(
+    name = test.replace("/", "_").replace(".cc", ""),
+    srcs = [test],
+    deps = [
+        ":google_cloud_cpp_testing_grpc",
+        "//:common",
+        "@com_google_protobuf//:protobuf",
+        "@googletest//:gtest_main",
+    ],
+) for test in google_cloud_cpp_testing_grpc_unit_tests]
+
+cc_library(
+    name = "google_cloud_cpp_testing_rest_private",
+    testonly = True,
+    srcs = google_cloud_cpp_testing_rest_srcs,
+    hdrs = google_cloud_cpp_testing_rest_hdrs,
+    deps = [
+        "//google/cloud:google_cloud_cpp_rest_internal",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "google_cloud_cpp_testing_rest",
+    testonly = True,
+    tags = ["manual"],
+    visibility = [
+        ":__subpackages__",
+        "//:__pkg__",
+    ],
+    deps = [":google_cloud_cpp_testing_rest_private"],
+)

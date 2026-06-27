@@ -1,0 +1,46 @@
+/*!
+
+@mainpage Service Usage API C++ Client Library
+
+An idiomatic C++ client library for the [Service Usage API][cloud-service],
+an infrastructure service of Google Cloud that lets you list and manage APIs
+and Services in your Cloud projects.
+
+While this library is **GA**, please note Google Cloud C++ client libraries do **not** follow [Semantic Versioning](https://semver.org/).
+
+@tableofcontents{HTML:2}
+
+## Quickstart
+
+The following shows the code that you'll run in the
+`google/cloud/serviceusage/quickstart/` directory,
+which should give you a taste of the Service Usage API C++ client library API.
+
+@snippet quickstart.cc all
+
+## Main classes
+
+<!-- inject-client-list-start -->
+The main class in this library is
+[`serviceusage_v1::ServiceUsageClient`](@ref google::cloud::serviceusage_v1::ServiceUsageClient). All RPCs are exposed
+as member functions of this class. Other classes provide helpers, configuration
+parameters, and infrastructure to mock
+[`serviceusage_v1::ServiceUsageClient`](@ref google::cloud::serviceusage_v1::ServiceUsageClient) when testing your
+application.
+<!-- inject-client-list-end -->
+
+## More Information
+
+- @ref common-error-handling - describes how the library reports errors.
+- @ref serviceusage-override-endpoint - describes how to override the default
+  endpoint.
+- @ref serviceusage-override-authentication - describes how to change the
+  authentication credentials used by the library.
+- @ref serviceusage-override-retry - describes how to change the default retry
+  policies.
+- @ref serviceusage-env - describes environment variables that can configure the behavior of the library.
+- @ref serviceusage-override-universe-domain - describes how to override the default universe domain.
+
+[cloud-service]: https://cloud.google.com/service-usage
+
+*/
