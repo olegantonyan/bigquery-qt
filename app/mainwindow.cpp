@@ -7,7 +7,9 @@
 #include <QAction>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QFont>
 #include <QFutureWatcher>
+#include <QIcon>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QMenu>
@@ -24,6 +26,7 @@
 namespace {
 constexpr int KindRole = Qt::UserRole;
 constexpr int IdRole = Qt::UserRole + 1;
+constexpr int TypeRole = Qt::UserRole + 2;
 const QString kDataset = QStringLiteral("dataset");
 const QString kTable = QStringLiteral("table");
 const QString kPlaceholder = QStringLiteral("placeholder");
@@ -39,6 +42,42 @@ QTreeWidgetItem *makePlaceholder(QTreeWidgetItem *parent) {
 
 QString selectAllSql(const QString &project, const QString &dataset, const QString &table) {
   return QStringLiteral("SELECT *\nFROM `%1.%2.%3`\nLIMIT 1000").arg(project, dataset, table);
+}
+
+QIcon datasetIcon() {
+  static const QIcon icon(QStringLiteral(":/icons/dataset.svg"));
+  return icon;
+}
+
+QIcon iconForTableType(const QString &type) {
+  static const QIcon table(QStringLiteral(":/icons/table.svg"));
+  static const QIcon view(QStringLiteral(":/icons/view.svg"));
+  static const QIcon materializedView(QStringLiteral(":/icons/materialized_view.svg"));
+  static const QIcon external(QStringLiteral(":/icons/external.svg"));
+  static const QIcon snapshot(QStringLiteral(":/icons/snapshot.svg"));
+  if (type == QStringLiteral("VIEW"))
+    return view;
+  if (type == QStringLiteral("MATERIALIZED_VIEW"))
+    return materializedView;
+  if (type == QStringLiteral("EXTERNAL"))
+    return external;
+  if (type == QStringLiteral("SNAPSHOT"))
+    return snapshot;
+  return table;
+}
+
+QString humanTypeLabel(const QString &type) {
+  if (type == QStringLiteral("TABLE"))
+    return QObject::tr("Table");
+  if (type == QStringLiteral("VIEW"))
+    return QObject::tr("View");
+  if (type == QStringLiteral("MATERIALIZED_VIEW"))
+    return QObject::tr("Materialized view");
+  if (type == QStringLiteral("EXTERNAL"))
+    return QObject::tr("External table");
+  if (type == QStringLiteral("SNAPSHOT"))
+    return QObject::tr("Snapshot");
+  return type;
 }
 } // namespace
 
@@ -100,6 +139,9 @@ MainWindow::MainWindow(QWidget *parent)
           &MainWindow::showTreeContextMenu);
 
   restoreUi();
+
+  if (!ui->projectCombo->currentText().trimmed().isEmpty())
+    loadDatasets();
 }
 
 MainWindow::~MainWindow()
@@ -174,6 +216,7 @@ void MainWindow::loadDatasets()
     for (const DatasetInfo &d : r.datasets) {
       auto *item = new QTreeWidgetItem(ui->datasetTree);
       item->setText(0, d.id);
+      item->setIcon(0, datasetIcon());
       item->setData(0, KindRole, kDataset);
       item->setData(0, IdRole, d.id);
       const QString tip = QStringLiteral("%1\n%2").arg(d.friendlyName, d.location).trimmed();
@@ -220,12 +263,12 @@ void MainWindow::loadTables(QTreeWidgetItem *datasetItem)
     }
     for (const TableInfo &t : r.tables) {
       auto *child = new QTreeWidgetItem(node);
-      child->setText(0, t.type == QStringLiteral("TABLE")
-                            ? t.id
-                            : QStringLiteral("%1  [%2]").arg(t.id, t.type));
+      child->setText(0, t.id);
+      child->setIcon(0, iconForTableType(t.type));
       child->setData(0, KindRole, kTable);
       child->setData(0, IdRole, t.id);
-      child->setToolTip(0, t.type);
+      child->setData(0, TypeRole, t.type);
+      child->setToolTip(0, humanTypeLabel(t.type));
     }
     statusBar()->showMessage(tr("%n table(s)", "", static_cast<int>(r.tables.size())));
   });
@@ -252,17 +295,40 @@ void MainWindow::prefillSelect(QTreeWidgetItem *tableItem)
 void MainWindow::showTreeContextMenu(const QPoint &pos)
 {
   QTreeWidgetItem *item = ui->datasetTree->itemAt(pos);
-  if (!item || item->data(0, KindRole).toString() != kTable)
+  if (!item)
     return;
+  const QString kind = item->data(0, KindRole).toString();
+  if (kind != kDataset && kind != kTable)
+    return;
+
+  QMenu menu;
+  const QString headerText =
+      kind == kDataset ? tr("Dataset") : humanTypeLabel(item->data(0, TypeRole).toString());
+  QAction *header = menu.addAction(headerText);
+  header->setEnabled(false);
+  QFont headerFont = header->font();
+  headerFont.setBold(true);
+  header->setFont(headerFont);
+  menu.addSeparator();
+
+  if (kind == kDataset) {
+    QAction *reloadAction = menu.addAction(tr("Reload tables"));
+    if (menu.exec(ui->datasetTree->viewport()->mapToGlobal(pos)) == reloadAction) {
+      qDeleteAll(item->takeChildren());
+      makePlaceholder(item);
+      loadTables(item);
+      item->setExpanded(true);
+    }
+    return;
+  }
+
   QTreeWidgetItem *parent = item->parent();
   if (!parent)
     return;
-
   const QString project = ui->projectCombo->currentText().trimmed();
   const QString dataset = parent->data(0, IdRole).toString();
   const QString table = item->data(0, IdRole).toString();
 
-  QMenu menu;
   QAction *structureAction = menu.addAction(tr("Open structure"));
   QAction *queryAction = menu.addAction(tr("Run query"));
   QAction *chosen = menu.exec(ui->datasetTree->viewport()->mapToGlobal(pos));

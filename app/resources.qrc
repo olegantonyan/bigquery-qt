@@ -1,0 +1,10 @@
+<RCC>
+  <qresource prefix="/">
+    <file>icons/dataset.svg</file>
+    <file>icons/table.svg</file>
+    <file>icons/view.svg</file>
+    <file>icons/materialized_view.svg</file>
+    <file>icons/external.svg</file>
+    <file>icons/snapshot.svg</file>
+  </qresource>
+</RCC>

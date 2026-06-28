@@ -32,6 +32,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent)
 find_package(google_cloud_cpp_bigquerycontrol REQUIRED)
 
 qt_standard_project_setup()
+set(CMAKE_AUTORCC ON)
 
 qt_add_executable(bigquery-qt
     WIN32 MACOSX_BUNDLE
@@ -47,6 +48,7 @@ qt_add_executable(bigquery-qt
     app/spinnerbutton.h
     app/bigqueryclient.cpp
     app/bigqueryclient.h
+    app/resources.qrc
 )
 
 target_include_directories(bigquery-qt PRIVATE app)
