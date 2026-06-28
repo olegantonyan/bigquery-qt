@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 
 #include "querytab.h"
+#include "savedqueriesclient.h"
+#include "savedquerytab.h"
 #include "tablestructuretab.h"
 
 #include <QAction>
@@ -27,10 +29,12 @@ namespace {
 constexpr int KindRole = Qt::UserRole;
 constexpr int IdRole = Qt::UserRole + 1;
 constexpr int TypeRole = Qt::UserRole + 2;
+constexpr int RepoRole = Qt::UserRole + 3;
 const QString kDataset = QStringLiteral("dataset");
 const QString kTable = QStringLiteral("table");
 const QString kPlaceholder = QStringLiteral("placeholder");
 const QString kLoading = QStringLiteral("loading");
+const QString kSavedQuery = QStringLiteral("savedquery");
 const QString kProjectsKey = QStringLiteral("projects/history");
 
 QTreeWidgetItem *makePlaceholder(QTreeWidgetItem *parent) {
@@ -44,8 +48,19 @@ QString selectAllSql(const QString &project, const QString &dataset, const QStri
   return QStringLiteral("SELECT *\nFROM `%1.%2.%3`\nLIMIT 1000").arg(project, dataset, table);
 }
 
+QString regionFromRepo(const QString &resourceName) {
+  const QStringList parts = resourceName.split(QLatin1Char('/'));
+  const int i = parts.indexOf(QStringLiteral("locations"));
+  return (i >= 0 && i + 1 < parts.size()) ? parts.at(i + 1) : QString();
+}
+
 QIcon datasetIcon() {
   static const QIcon icon(QStringLiteral(":/icons/dataset.svg"));
+  return icon;
+}
+
+QIcon savedQueryIcon() {
+  static const QIcon icon(QStringLiteral(":/icons/saved_query.svg"));
   return icon;
 }
 
@@ -89,6 +104,8 @@ MainWindow::MainWindow(QWidget *parent)
 
   ui->projectCombo->lineEdit()->setPlaceholderText(tr("GCP project id"));
   ui->refreshButton->setStaticIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+  ui->savedRefreshButton->setStaticIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+  splitDockWidget(ui->datasetDock, ui->savedQueriesDock, Qt::Vertical);
 
   ui->tabWidget->setTabsClosable(true);
   ui->tabWidget->setMovable(true);
@@ -119,6 +136,9 @@ MainWindow::MainWindow(QWidget *parent)
   QAction *toggleDock = ui->datasetDock->toggleViewAction();
   toggleDock->setText(tr("Datasets"));
   viewMenu->addAction(toggleDock);
+  QAction *toggleSavedDock = ui->savedQueriesDock->toggleViewAction();
+  toggleSavedDock->setText(tr("Saved queries"));
+  viewMenu->addAction(toggleSavedDock);
 
   loadProjectHistory();
   const QString envProject = qEnvironmentVariable("GOOGLE_CLOUD_PROJECT");
@@ -138,10 +158,16 @@ MainWindow::MainWindow(QWidget *parent)
   connect(ui->datasetTree, &QTreeWidget::customContextMenuRequested, this,
           &MainWindow::showTreeContextMenu);
 
+  connect(ui->savedRefreshButton, &QPushButton::clicked, this, &MainWindow::loadSavedQueries);
+  connect(ui->savedQueriesTree, &QTreeWidget::itemDoubleClicked, this,
+          [this](QTreeWidgetItem *item, int) { openSavedQuery(item); });
+
   restoreUi();
 
-  if (!ui->projectCombo->currentText().trimmed().isEmpty())
+  if (!ui->projectCombo->currentText().trimmed().isEmpty()) {
     loadDatasets();
+    loadSavedQueries();
+  }
 }
 
 MainWindow::~MainWindow()
@@ -290,6 +316,58 @@ void MainWindow::prefillSelect(QTreeWidgetItem *tableItem)
   if (!tab)
     tab = addTab();
   tab->setQueryText(selectAllSql(project, dataset, table));
+}
+
+void MainWindow::loadSavedQueries()
+{
+  const QString project = ui->projectCombo->currentText().trimmed();
+  if (project.isEmpty()) {
+    statusBar()->showMessage(tr("Enter a project to browse saved queries."));
+    return;
+  }
+  ui->savedQueriesTree->clear();
+  statusBar()->showMessage(tr("Loading saved queries…"));
+
+  auto *watcher = new QFutureWatcher<SavedQueryListResult>(this);
+  connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, project]() {
+    watcher->deleteLater();
+    ui->savedRefreshButton->stopSpinning();
+    if (project != ui->projectCombo->currentText().trimmed())
+      return;
+    const SavedQueryListResult r = watcher->result();
+    if (!r.ok) {
+      statusBar()->showMessage(tr("Saved queries failed: %1").arg(r.error));
+      return;
+    }
+    for (const SavedQuery &q : r.queries) {
+      auto *item = new QTreeWidgetItem(ui->savedQueriesTree);
+      item->setText(0, q.displayName.isEmpty() ? q.id : q.displayName);
+      item->setIcon(0, savedQueryIcon());
+      item->setData(0, KindRole, kSavedQuery);
+      item->setData(0, RepoRole, q.resourceName);
+      const QString tip = QStringLiteral("%1\n%2").arg(q.region, q.createTime).trimmed();
+      if (!tip.isEmpty())
+        item->setToolTip(0, tip);
+    }
+    statusBar()->showMessage(tr("%n saved query(s)", "", static_cast<int>(r.queries.size())));
+  });
+  ui->savedRefreshButton->startSpinning();
+  SavedQueriesClient client(project);
+  watcher->setFuture(QtConcurrent::run([client]() { return client.list(); }));
+}
+
+void MainWindow::openSavedQuery(QTreeWidgetItem *item)
+{
+  if (!item || item->data(0, KindRole).toString() != kSavedQuery)
+    return;
+  const QString project = ui->projectCombo->currentText().trimmed();
+  const QString repository = item->data(0, RepoRole).toString();
+
+  auto *tab = new SavedQueryTab(project, repository, regionFromRepo(repository), item->text(0));
+  connect(tab, &SavedQueryTab::status, this,
+          [this](const QString &message) { statusBar()->showMessage(message); });
+  const int index = ui->tabWidget->addTab(tab, item->text(0));
+  ui->tabWidget->setCurrentIndex(index);
 }
 
 void MainWindow::showTreeContextMenu(const QPoint &pos)

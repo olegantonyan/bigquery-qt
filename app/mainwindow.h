@@ -31,6 +31,8 @@ private slots:
   void loadTables(QTreeWidgetItem *datasetItem);
   void prefillSelect(QTreeWidgetItem *tableItem);
   void showTreeContextMenu(const QPoint &pos);
+  void loadSavedQueries();
+  void openSavedQuery(QTreeWidgetItem *item);
   void newTab();
   void closeTab(int index);
 

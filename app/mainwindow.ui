@@ -82,6 +82,57 @@
     </layout>
    </widget>
   </widget>
+  <widget class="QDockWidget" name="savedQueriesDock">
+   <property name="windowTitle">
+    <string>Saved queries</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="savedQueriesContents">
+    <layout class="QVBoxLayout" name="savedQueriesLayout">
+     <item>
+      <layout class="QHBoxLayout" name="savedQueriesTopRow">
+       <item>
+        <spacer name="savedQueriesSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="SpinnerButton" name="savedRefreshButton">
+         <property name="toolTip">
+          <string>Refresh saved queries</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QTreeWidget" name="savedQueriesTree">
+       <property name="headerHidden">
+        <bool>true</bool>
+       </property>
+       <column>
+        <property name="text">
+         <string notr="true">1</string>
+        </property>
+       </column>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
  </widget>
  <customwidgets>
   <customwidget>

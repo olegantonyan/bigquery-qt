@@ -72,7 +72,7 @@ ExternalProject_Add(ep_google_cloud_cpp
         -DBUILD_TESTING=OFF
         -DGOOGLE_CLOUD_CPP_WITH_MOCKS=OFF
         -DGOOGLE_CLOUD_CPP_ENABLE_EXAMPLES=OFF
-        "-DGOOGLE_CLOUD_CPP_ENABLE=bigquery|bigquerycontrol|opentelemetry"
+        "-DGOOGLE_CLOUD_CPP_ENABLE=bigquery|bigquerycontrol|dataform|opentelemetry"
     DEPENDS ${_veps}
     USES_TERMINAL_CONFIGURE ON
     USES_TERMINAL_BUILD ON

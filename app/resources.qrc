@@ -6,5 +6,6 @@
     <file>icons/materialized_view.svg</file>
     <file>icons/external.svg</file>
     <file>icons/snapshot.svg</file>
+    <file>icons/saved_query.svg</file>
   </qresource>
 </RCC>

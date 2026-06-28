@@ -30,6 +30,7 @@ list(PREPEND CMAKE_PREFIX_PATH "${BQQT_DEPS_PREFIX}")
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent)
 find_package(google_cloud_cpp_bigquerycontrol REQUIRED)
+find_package(google_cloud_cpp_dataform REQUIRED)
 
 qt_standard_project_setup()
 set(CMAKE_AUTORCC ON)
@@ -44,10 +45,14 @@ qt_add_executable(bigquery-qt
     app/querytab.h
     app/tablestructuretab.cpp
     app/tablestructuretab.h
+    app/savedquerytab.cpp
+    app/savedquerytab.h
     app/spinnerbutton.cpp
     app/spinnerbutton.h
     app/bigqueryclient.cpp
     app/bigqueryclient.h
+    app/savedqueriesclient.cpp
+    app/savedqueriesclient.h
     app/resources.qrc
 )
 
@@ -59,4 +64,5 @@ target_link_libraries(bigquery-qt
         Qt::Widgets
         Qt::Concurrent
         google-cloud-cpp::experimental-bigquerycontrol
+        google-cloud-cpp::dataform
 )
