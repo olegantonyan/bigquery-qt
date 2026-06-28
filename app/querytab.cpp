@@ -71,7 +71,8 @@ void QueryTab::runQuery()
 
   m_runButton->setEnabled(false);
   emit status(tr("Running query…"));
-  m_watcher.setFuture(QtConcurrent::run(bqRunQuery, project, sql));
+  BigQueryClient client(project);
+  m_watcher.setFuture(QtConcurrent::run([client, sql]() { return client.runQuery(sql); }));
 }
 
 void QueryTab::displayResults()

@@ -23,6 +23,31 @@ struct TableInfo {
   QString type;
 };
 
+struct SchemaField {
+  QString name;
+  QString type;
+  QString mode;
+  QString description;
+  QList<SchemaField> fields;
+};
+
+struct TableProperty {
+  QString name;
+  QString value;
+};
+
+struct TableDetails {
+  bool ok = false;
+  QString error;
+  QString projectId;
+  QString datasetId;
+  QString tableId;
+  QString tableType;
+  QList<TableProperty> properties;
+  QList<SchemaField> schema;
+  QString viewQuery;
+};
+
 struct DatasetListResult {
   bool ok = false;
   QString error;
@@ -35,8 +60,17 @@ struct TableListResult {
   QList<TableInfo> tables;
 };
 
-QueryResult bqRunQuery(const QString &projectId, const QString &sql);
-DatasetListResult bqListDatasets(const QString &projectId);
-TableListResult bqListTables(const QString &projectId, const QString &datasetId);
+class BigQueryClient {
+public:
+  explicit BigQueryClient(QString projectId);
+
+  QueryResult runQuery(const QString &sql) const;
+  DatasetListResult listDatasets() const;
+  TableListResult listTables(const QString &datasetId) const;
+  TableDetails getTable(const QString &datasetId, const QString &tableId) const;
+
+private:
+  QString m_projectId;
+};
 
 #endif // BIGQUERYCLIENT_H

@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "querytab.h"
+#include "tablestructuretab.h"
 
 #include <QAction>
 #include <QCloseEvent>
@@ -11,12 +12,14 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
-#include <QPushButton>
 #include <QSettings>
+#include <QStyle>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QtConcurrent>
+
+#include "spinnerbutton.h"
 
 namespace {
 constexpr int KindRole = Qt::UserRole;
@@ -33,6 +36,10 @@ QTreeWidgetItem *makePlaceholder(QTreeWidgetItem *parent) {
   placeholder->setText(0, QStringLiteral("…"));
   return placeholder;
 }
+
+QString selectAllSql(const QString &project, const QString &dataset, const QString &table) {
+  return QStringLiteral("SELECT *\nFROM `%1.%2.%3`\nLIMIT 1000").arg(project, dataset, table);
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -42,6 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
   ui->setupUi(this);
 
   ui->projectCombo->lineEdit()->setPlaceholderText(tr("GCP project id"));
+  ui->refreshButton->setStaticIcon(style()->standardIcon(QStyle::SP_BrowserReload));
 
   ui->tabWidget->setTabsClosable(true);
   ui->tabWidget->setMovable(true);
@@ -87,6 +95,9 @@ MainWindow::MainWindow(QWidget *parent)
   connect(ui->datasetTree, &QTreeWidget::itemExpanded, this, &MainWindow::loadTables);
   connect(ui->datasetTree, &QTreeWidget::itemDoubleClicked, this,
           [this](QTreeWidgetItem *item, int) { prefillSelect(item); });
+  ui->datasetTree->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(ui->datasetTree, &QTreeWidget::customContextMenuRequested, this,
+          &MainWindow::showTreeContextMenu);
 
   restoreUi();
 }
@@ -152,6 +163,7 @@ void MainWindow::loadDatasets()
   auto *watcher = new QFutureWatcher<DatasetListResult>(this);
   connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, project]() {
     watcher->deleteLater();
+    ui->refreshButton->stopSpinning();
     if (project != ui->projectCombo->currentText().trimmed())
       return;
     const DatasetListResult r = watcher->result();
@@ -171,7 +183,9 @@ void MainWindow::loadDatasets()
     }
     statusBar()->showMessage(tr("%n dataset(s)", "", static_cast<int>(r.datasets.size())));
   });
-  watcher->setFuture(QtConcurrent::run(bqListDatasets, project));
+  ui->refreshButton->startSpinning();
+  BigQueryClient client(project);
+  watcher->setFuture(QtConcurrent::run([client]() { return client.listDatasets(); }));
 }
 
 void MainWindow::loadTables(QTreeWidgetItem *datasetItem)
@@ -215,7 +229,8 @@ void MainWindow::loadTables(QTreeWidgetItem *datasetItem)
     }
     statusBar()->showMessage(tr("%n table(s)", "", static_cast<int>(r.tables.size())));
   });
-  watcher->setFuture(QtConcurrent::run(bqListTables, project, datasetId));
+  BigQueryClient client(project);
+  watcher->setFuture(QtConcurrent::run([client, datasetId]() { return client.listTables(datasetId); }));
 }
 
 void MainWindow::prefillSelect(QTreeWidgetItem *tableItem)
@@ -231,8 +246,41 @@ void MainWindow::prefillSelect(QTreeWidgetItem *tableItem)
   QueryTab *tab = currentTab();
   if (!tab)
     tab = addTab();
-  tab->setQueryText(
-      QStringLiteral("SELECT *\nFROM `%1.%2.%3`\nLIMIT 1000").arg(project, dataset, table));
+  tab->setQueryText(selectAllSql(project, dataset, table));
+}
+
+void MainWindow::showTreeContextMenu(const QPoint &pos)
+{
+  QTreeWidgetItem *item = ui->datasetTree->itemAt(pos);
+  if (!item || item->data(0, KindRole).toString() != kTable)
+    return;
+  QTreeWidgetItem *parent = item->parent();
+  if (!parent)
+    return;
+
+  const QString project = ui->projectCombo->currentText().trimmed();
+  const QString dataset = parent->data(0, IdRole).toString();
+  const QString table = item->data(0, IdRole).toString();
+
+  QMenu menu;
+  QAction *structureAction = menu.addAction(tr("Open structure"));
+  QAction *queryAction = menu.addAction(tr("Run query"));
+  QAction *chosen = menu.exec(ui->datasetTree->viewport()->mapToGlobal(pos));
+  if (chosen == structureAction)
+    openStructureTab(project, dataset, table);
+  else if (chosen == queryAction)
+    addTab(selectAllSql(project, dataset, table));
+}
+
+TableStructureTab *MainWindow::openStructureTab(const QString &project, const QString &dataset,
+                                                const QString &table)
+{
+  auto *tab = new TableStructureTab(project, dataset, table);
+  connect(tab, &TableStructureTab::status, this,
+          [this](const QString &message) { statusBar()->showMessage(message); });
+  const int index = ui->tabWidget->addTab(tab, tr("%1.%2").arg(dataset, table));
+  ui->tabWidget->setCurrentIndex(index);
+  return tab;
 }
 
 void MainWindow::restoreUi()
@@ -242,9 +290,17 @@ void MainWindow::restoreUi()
   restoreState(settings.value(QStringLiteral("mainwindow/state")).toByteArray());
   m_splitterState = settings.value(QStringLiteral("ui/splitter")).toByteArray();
 
-  const QStringList queries = settings.value(QStringLiteral("tabs/queries")).toStringList();
-  for (const QString &sql : queries)
-    addTab(sql);
+  const int count = settings.beginReadArray(QStringLiteral("tabs/items"));
+  for (int i = 0; i < count; ++i) {
+    settings.setArrayIndex(i);
+    if (settings.value(QStringLiteral("kind")).toString() == QStringLiteral("structure"))
+      openStructureTab(settings.value(QStringLiteral("project")).toString(),
+                       settings.value(QStringLiteral("dataset")).toString(),
+                       settings.value(QStringLiteral("table")).toString());
+    else
+      addTab(settings.value(QStringLiteral("sql")).toString());
+  }
+  settings.endArray();
   if (ui->tabWidget->count() == 0)
     addTab();
 
@@ -263,12 +319,22 @@ void MainWindow::saveUi()
     m_splitterState = tab->splitterState();
   settings.setValue(QStringLiteral("ui/splitter"), m_splitterState);
 
-  QStringList queries;
+  settings.remove(QStringLiteral("tabs/items"));
+  settings.beginWriteArray(QStringLiteral("tabs/items"));
   for (int i = 0; i < ui->tabWidget->count(); ++i) {
-    if (auto *tab = qobject_cast<QueryTab *>(ui->tabWidget->widget(i)))
-      queries << tab->queryText();
+    settings.setArrayIndex(i);
+    QWidget *widget = ui->tabWidget->widget(i);
+    if (auto *tab = qobject_cast<QueryTab *>(widget)) {
+      settings.setValue(QStringLiteral("kind"), QStringLiteral("query"));
+      settings.setValue(QStringLiteral("sql"), tab->queryText());
+    } else if (auto *tab = qobject_cast<TableStructureTab *>(widget)) {
+      settings.setValue(QStringLiteral("kind"), QStringLiteral("structure"));
+      settings.setValue(QStringLiteral("project"), tab->projectId());
+      settings.setValue(QStringLiteral("dataset"), tab->datasetId());
+      settings.setValue(QStringLiteral("table"), tab->tableId());
+    }
   }
-  settings.setValue(QStringLiteral("tabs/queries"), queries);
+  settings.endArray();
   settings.setValue(QStringLiteral("tabs/current"), ui->tabWidget->currentIndex());
 }
 

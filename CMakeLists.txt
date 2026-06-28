@@ -41,9 +41,15 @@ qt_add_executable(bigquery-qt
     app/mainwindow.ui
     app/querytab.cpp
     app/querytab.h
+    app/tablestructuretab.cpp
+    app/tablestructuretab.h
+    app/spinnerbutton.cpp
+    app/spinnerbutton.h
     app/bigqueryclient.cpp
     app/bigqueryclient.h
 )
+
+target_include_directories(bigquery-qt PRIVATE app)
 
 target_link_libraries(bigquery-qt
     PRIVATE

@@ -10,8 +10,10 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
+class QPoint;
 class QTreeWidgetItem;
 class QueryTab;
+class TableStructureTab;
 
 class MainWindow : public QMainWindow
 {
@@ -28,11 +30,14 @@ private slots:
   void loadDatasets();
   void loadTables(QTreeWidgetItem *datasetItem);
   void prefillSelect(QTreeWidgetItem *tableItem);
+  void showTreeContextMenu(const QPoint &pos);
   void newTab();
   void closeTab(int index);
 
 private:
   QueryTab *addTab(const QString &sql = QString());
+  TableStructureTab *openStructureTab(const QString &project, const QString &dataset,
+                                      const QString &table);
   QueryTab *currentTab() const;
   void restoreUi();
   void saveUi();

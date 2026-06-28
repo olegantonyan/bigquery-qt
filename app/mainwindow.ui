@@ -16,30 +16,6 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <layout class="QHBoxLayout" name="topRow">
-      <item>
-       <widget class="QComboBox" name="projectCombo">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="editable">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="refreshButton">
-        <property name="text">
-         <string>Refresh datasets</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
      <widget class="QTabWidget" name="tabWidget"/>
     </item>
    </layout>
@@ -65,6 +41,33 @@
    <widget class="QWidget" name="dockContents">
     <layout class="QVBoxLayout" name="dockLayout">
      <item>
+      <layout class="QHBoxLayout" name="dockTopRow">
+       <item>
+        <widget class="QComboBox" name="projectCombo">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="editable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="SpinnerButton" name="refreshButton">
+         <property name="toolTip">
+          <string>Refresh datasets</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <widget class="QTreeWidget" name="datasetTree">
        <property name="headerHidden">
         <bool>true</bool>
@@ -80,6 +83,13 @@
    </widget>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SpinnerButton</class>
+   <extends>QPushButton</extends>
+   <header>spinnerbutton.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
